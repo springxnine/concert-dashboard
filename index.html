@@ -98,13 +98,12 @@
         
         async function loadData() {
             try {
-                const [concerts, expenses, income] = await Promise.all([
+                const [concerts, statistics] = await Promise.all([
                     fetchSheet(930759061),
-                    fetchSheet(712406437),
-                    fetchSheet(1387421194)
+                    fetchSheet(1894568605)
                 ]);
 
-                processData(concerts, expenses, income);
+                processData(concerts, statistics);
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('dashboard').classList.add('active');
             } catch (error) {
@@ -128,7 +127,7 @@
             return Math.round(num).toLocaleString();
         }
 
-        function processData(concerts, expenses, income) {
+        function processData(concerts, statistics) {
             // Process concerts
             const artists = {};
             let attended = 0;
@@ -148,51 +147,44 @@
                 }
             }
 
-            // Process expenses - sum all values in each column (F=5, G=6, H=7, I=8, J=9, K=10, L=11)
+            // Process Statistics sheet - Expense Breakdown (Row 43-49, Col A=Category, B=Total)
+            const statsRows = statistics.rows || [];
             const expenseBreakdown = {};
             let expTotal = 0;
             
-            const expenseRows = expenses.rows || [];
-            const expenseHeaders = ['Membership', 'Travel Cost', 'Phone Rental', 'Fanlight', 'ถ่าน', 'อื่นสปอน', 'Other'];
-            
-            // Column F-L = index 5-11
-            for (let colIndex = 5; colIndex <= 11; colIndex++) {
-                let colTotal = 0;
-                for (let rowIndex = 0; rowIndex < expenseRows.length; rowIndex++) {
-                    const val = getValue(expenseRows[rowIndex].c[colIndex]);
-                    if (val) {
-                        colTotal += parseNum(val);
-                    }
-                }
+            // Row 43-49 = index 42-48
+            for (let i = 42; i <= 48 && i < statsRows.length; i++) {
+                const cells = statsRows[i].c || [];
+                const cat = getValue(cells[0]);
+                const val = getValue(cells[1]);
                 
-                if (colTotal > 0) {
-                    const catName = expenseHeaders[colIndex - 5] || `Column ${String.fromCharCode(70 + colIndex - 5)}`;
-                    expenseBreakdown[catName] = colTotal;
-                    expTotal += colTotal;
+                if (cat && val) {
+                    const catStr = String(cat).trim();
+                    const amount = parseNum(val);
+                    if (catStr && amount > 0) {
+                        expenseBreakdown[catStr] = amount;
+                        expTotal += amount;
+                    }
                 }
             }
 
-            // Process income - sum all values in each column (F=5, G=6, H=7, I=8)
+            // Process Statistics sheet - Income Breakdown (Row 53-56, Col A=Category, B=Total)
             const incomeBreakdown = {};
             let incTotal = 0;
             
-            const incomeRows = income.rows || [];
-            const incomeHeaders = ['ให้เช่าห้องไฟ', 'ให้เช่าพวม.', 'ถ่าน', 'Other'];
-            
-            // Column F-I = index 5-8
-            for (let colIndex = 5; colIndex <= 8; colIndex++) {
-                let colTotal = 0;
-                for (let rowIndex = 0; rowIndex < incomeRows.length; rowIndex++) {
-                    const val = getValue(incomeRows[rowIndex].c[colIndex]);
-                    if (val) {
-                        colTotal += parseNum(val);
-                    }
-                }
+            // Row 53-56 = index 52-55
+            for (let i = 52; i <= 55 && i < statsRows.length; i++) {
+                const cells = statsRows[i].c || [];
+                const cat = getValue(cells[0]);
+                const val = getValue(cells[1]);
                 
-                if (colTotal > 0) {
-                    const catName = incomeHeaders[colIndex - 5] || `Column ${String.fromCharCode(70 + colIndex - 5)}`;
-                    incomeBreakdown[catName] = colTotal;
-                    incTotal += colTotal;
+                if (cat && val) {
+                    const catStr = String(cat).trim();
+                    const amount = parseNum(val);
+                    if (catStr && amount > 0) {
+                        incomeBreakdown[catStr] = amount;
+                        incTotal += amount;
+                    }
                 }
             }
 
