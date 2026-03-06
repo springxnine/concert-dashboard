@@ -148,56 +148,51 @@
                 }
             }
 
-            // Process expenses (Column F onwards = categories, Row 2 onwards = amounts)
+            // Process expenses - sum all values in each column (F=5, G=6, H=7, I=8, J=9, K=10, L=11)
             const expenseBreakdown = {};
             let expTotal = 0;
             
             const expenseRows = expenses.rows || [];
-            const expenseHeaders = expenses.cols || [];
+            const expenseHeaders = ['Membership', 'Travel Cost', 'Phone Rental', 'Fanlight', 'ถ่าน', 'อื่นสปอน', 'Other'];
             
-            // Get headers from row 1 (index 1)
-            if (expenseRows[0]) {
-                const headerCells = expenseRows[0].c || [];
-                for (let i = 5; i < headerCells.length; i++) { // Start from column F (index 5)
-                    const catName = getValue(headerCells[i]);
-                    if (!catName) continue;
-                    
-                    // Get amounts from rows 2 onwards (index 1+)
-                    let catTotal = 0;
-                    for (let j = 1; j < expenseRows.length; j++) {
-                        const amt = getValue(expenseRows[j].c[i]);
-                        if (amt) catTotal += parseNum(amt);
+            // Column F-L = index 5-11
+            for (let colIndex = 5; colIndex <= 11; colIndex++) {
+                let colTotal = 0;
+                for (let rowIndex = 0; rowIndex < expenseRows.length; rowIndex++) {
+                    const val = getValue(expenseRows[rowIndex].c[colIndex]);
+                    if (val) {
+                        colTotal += parseNum(val);
                     }
-                    
-                    if (catTotal > 0) {
-                        expenseBreakdown[String(catName).trim()] = catTotal;
-                        expTotal += catTotal;
-                    }
+                }
+                
+                if (colTotal > 0) {
+                    const catName = expenseHeaders[colIndex - 5] || `Column ${String.fromCharCode(70 + colIndex - 5)}`;
+                    expenseBreakdown[catName] = colTotal;
+                    expTotal += colTotal;
                 }
             }
 
-            // Process income (similar structure)
+            // Process income - sum all values in each column (F=5, G=6, H=7, I=8)
             const incomeBreakdown = {};
             let incTotal = 0;
             
             const incomeRows = income.rows || [];
+            const incomeHeaders = ['ให้เช่าห้องไฟ', 'ให้เช่าพวม.', 'ถ่าน', 'Other'];
             
-            if (incomeRows[0]) {
-                const headerCells = incomeRows[0].c || [];
-                for (let i = 5; i < headerCells.length; i++) {
-                    const catName = getValue(headerCells[i]);
-                    if (!catName) continue;
-                    
-                    let catTotal = 0;
-                    for (let j = 1; j < incomeRows.length; j++) {
-                        const amt = getValue(incomeRows[j].c[i]);
-                        if (amt) catTotal += parseNum(amt);
+            // Column F-I = index 5-8
+            for (let colIndex = 5; colIndex <= 8; colIndex++) {
+                let colTotal = 0;
+                for (let rowIndex = 0; rowIndex < incomeRows.length; rowIndex++) {
+                    const val = getValue(incomeRows[rowIndex].c[colIndex]);
+                    if (val) {
+                        colTotal += parseNum(val);
                     }
-                    
-                    if (catTotal > 0) {
-                        incomeBreakdown[String(catName).trim()] = catTotal;
-                        incTotal += catTotal;
-                    }
+                }
+                
+                if (colTotal > 0) {
+                    const catName = incomeHeaders[colIndex - 5] || `Column ${String.fromCharCode(70 + colIndex - 5)}`;
+                    incomeBreakdown[catName] = colTotal;
+                    incTotal += colTotal;
                 }
             }
 
