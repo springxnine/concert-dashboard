@@ -28,6 +28,13 @@
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; margin-bottom: 40px; }
         .chart-box { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); }
         .chart-box h2 { font-size: 1.3em; margin-bottom: 20px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .breakdown-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .breakdown-card { background: #f8f9fb; padding: 20px; border-radius: 10px; border-left: 4px solid #667eea; }
+        .breakdown-card h4 { font-weight: 600; color: #333; margin-bottom: 10px; font-size: 0.95em; }
+        .breakdown-card .amount { font-size: 1.5em; color: #667eea; font-weight: 700; }
+        .total-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; grid-column: 1 / -1; }
+        .total-card h4 { font-weight: 600; color: white; margin-bottom: 10px; font-size: 0.95em; }
+        .total-card .amount { font-size: 2em; color: white; font-weight: 700; }
         .list-container { background: white; border-radius: 15px; padding: 35px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); margin-bottom: 40px; }
         .list-container h2 { font-size: 1.5em; margin-bottom: 30px; color: #333; border-bottom: 3px solid #667eea; padding-bottom: 12px; }
         .list-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
@@ -97,6 +104,18 @@
                 <div id="latestConcerts"></div>
             </div>
 
+            <div class="section-title">💸 EXPENSE BREAKDOWN</div>
+            <div class="content-box">
+                <h2>Expenses by Category</h2>
+                <div class="breakdown-grid" id="expenseBreakdown"></div>
+            </div>
+
+            <div class="section-title">💵 INCOME BREAKDOWN</div>
+            <div class="content-box">
+                <h2>Income by Category</h2>
+                <div class="breakdown-grid" id="incomeBreakdown"></div>
+            </div>
+
             <div class="section-title">🎤 TOP ARTISTS</div>
             <div class="list-container">
                 <h2>Top 3 Most Attended Artists</h2>
@@ -116,27 +135,31 @@
     </div>
 
     <script>
-        const googleSheetId = '1JjFwIutAXA4xtq4xgbrfH4DtknSuJ06YPaup5gijqtM';
+        const SHEET_ID = '1JjFwIutAXA4xtq4xgbrfH4DtknSuJ06YPaup5gijqtM';
         let chartInstances = { concertsByYear: null, spendingByYear: null, eventTypes: null };
 
         async function loadData() {
             try {
-                document.getElementById('loadingText').textContent = 'Fetching Concerts sheet...';
-                const concertsUrl = `https://docs.google.com/spreadsheets/d/${googleSheetId}/gviz/tq?tqx=out:json&sheet=Concerts`;
-                const statsUrl = `https://docs.google.com/spreadsheets/d/${googleSheetId}/gviz/tq?tqx=out:json&sheet=Statistics`;
+                document.getElementById('loadingText').textContent = 'Fetching data...';
                 
-                const [concertsRes, statsRes] = await Promise.all([
+                const concertsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=930759061`;
+                const statsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=1894568605`;
+                const expenseUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=712406437`;
+                const incomeUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=1387421194`;
+                
+                const [concertsRes, statsRes, expenseRes, incomeRes] = await Promise.all([
                     fetch(concertsUrl),
-                    fetch(statsUrl)
+                    fetch(statsUrl),
+                    fetch(expenseUrl),
+                    fetch(incomeUrl)
                 ]);
 
-                const concertsText = await concertsRes.text();
-                const statsText = await statsRes.text();
-                
-                const concertsData = JSON.parse(concertsText.substring(47).slice(0, -2));
-                const statsData = JSON.parse(statsText.substring(47).slice(0, -2));
+                const concertsCSV = await concertsRes.text();
+                const statsCSV = await statsRes.text();
+                const expenseCSV = await expenseRes.text();
+                const incomeCSV = await incomeRes.text();
 
-                processData(concertsData, statsData);
+                processData(concertsCSV, statsCSV, expenseCSV, incomeCSV);
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('dashboard').classList.add('active');
             } catch (error) {
@@ -145,17 +168,13 @@
             }
         }
 
-        function extractValue(val) {
-            if (!val) return null;
-            if (typeof val === 'string') return val;
-            if (val.v !== undefined) return val.v;
-            return null;
+        function parseCSV(csv) {
+            return csv.trim().split('\n').map(line => line.split(','));
         }
 
         function parseNum(val) {
-            const v = extractValue(val);
-            if (!v || v === '') return 0;
-            const num = parseFloat(String(v).replace(/[^0-9.-]/g, ''));
+            if (!val || val === '') return 0;
+            const num = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
             return isNaN(num) ? 0 : num;
         }
 
@@ -164,42 +183,43 @@
         }
 
         function parseDate(val) {
-            const v = extractValue(val);
-            if (!v) return null;
-            if (typeof v === 'number') {
+            if (!val) return null;
+            if (typeof val === 'number') {
                 const excelEpoch = new Date(1899, 11, 30);
-                const date = new Date(excelEpoch.getTime() + v * 86400000);
+                const date = new Date(excelEpoch.getTime() + val * 86400000);
                 return date;
             }
-            return new Date(v);
+            return new Date(val);
         }
 
-        function processData(concertsData, statsData) {
+        function processData(concertsCSV, statsCSV, expenseCSV, incomeCSV) {
+            const concerts = parseCSV(concertsCSV);
+            const stats = parseCSV(statsCSV);
+            const expenses = parseCSV(expenseCSV);
+            const income = parseCSV(incomeCSV);
+
             const artists = {}, venues = {}, eventTypes = {}, latestAttended = [];
             const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {};
             let attendedCount = 0;
 
-            const rows = concertsData.rows || [];
-            const lastRow = rows.length - 1;
-
-            for (let i = 0; i < lastRow; i++) {
-                const row = rows[i].c || [];
+            for (let i = 1; i < concerts.length; i++) {
+                const row = concerts[i];
                 if (!row[0]) continue;
 
-                const concertId = extractValue(row[0]);
-                const date = extractValue(row[1]);
-                const eventType = extractValue(row[2]);
-                const artist = extractValue(row[3]);
-                const eventName = extractValue(row[4]);
-                const venue = extractValue(row[5]);
-                const status = extractValue(row[7]);
-                const actualPrice = extractValue(row[13]);
+                const concertId = row[0];
+                const date = row[1];
+                const eventType = row[2];
+                const artist = row[3];
+                const eventName = row[4];
+                const venue = row[5];
+                const status = row[7];
+                const actualPrice = row[13];
 
                 if (concertId && status) {
                     let year = 'Unknown';
                     if (date) {
                         const dateObj = parseDate(date);
-                        if (dateObj && dateObj.getFullYear() > 1970) {
+                        if (dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970) {
                             year = dateObj.getFullYear();
                         }
                     }
@@ -207,7 +227,7 @@
                     const price = parseNum(actualPrice);
                     spendingByYear[year] = (spendingByYear[year] || 0) + price;
 
-                    if (status === 'Attended') {
+                    if (status.includes('Attended')) {
                         attendedCount++;
                         concertsByYear[year] = (concertsByYear[year] || 0) + 1;
                         latestAttended.push({ date, artist, event: eventName, venue });
@@ -226,17 +246,16 @@
                         }
                     }
 
-                    if (eventType && status === 'Attended') {
+                    if (eventType && status.includes('Attended')) {
                         const typeStr = String(eventType).trim();
                         if (typeStr) eventTypes[typeStr] = (eventTypes[typeStr] || 0) + 1;
                     }
                 }
             }
 
-            const statsRows = statsData.rows || [];
-            const totalAttendedFromStats = statsRows[3] ? parseNum(statsRows[3].c[1]) : attendedCount;
-            const b8 = statsRows[7] ? parseNum(statsRows[7].c[1]) : 0;
-            const b9 = statsRows[8] ? parseNum(statsRows[8].c[1]) : 0;
+            const totalAttendedFromStats = stats[3] ? parseNum(stats[3][1]) : attendedCount;
+            const b8 = stats[7] ? parseNum(stats[7][1]) : 0;
+            const b9 = stats[8] ? parseNum(stats[8][1]) : 0;
             const totalTicketCost = b8 - b9;
 
             const topArtist = Object.entries(artists).sort((a, b) => b[1] - a[1])[0];
@@ -254,12 +273,46 @@
                 .slice(0, 2)
                 .map(c => {
                     const dateObj = parseDate(c.date);
-                    const dateStr = dateObj && dateObj.getFullYear() > 1970 
+                    const dateStr = dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970 
                         ? dateObj.toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric'})
                         : 'N/A';
                     return `<div class="latest-card"><div class="date">📅 ${dateStr}</div><div class="artist">🎤 ${c.artist || 'Unknown'}</div><div class="event">${c.event || ''}</div><div class="event">🏟️ ${c.venue || ''}</div></div>`;
                 }).join('');
             document.getElementById('latestConcerts').innerHTML = latestHtml || '<div class="empty-state">No attended concerts</div>';
+
+            const expenseBreakdown = {};
+            let expenseTotal = 0;
+            for (let i = 1; i < expenses.length; i++) {
+                if (expenses[i][0] && expenses[i][1]) {
+                    const cat = expenses[i][0];
+                    const amount = parseNum(expenses[i][1]);
+                    expenseBreakdown[cat] = amount;
+                    expenseTotal += amount;
+                }
+            }
+
+            const incomeBreakdown = {};
+            let incomeTotal = 0;
+            for (let i = 1; i < income.length; i++) {
+                if (income[i][0] && income[i][1]) {
+                    const cat = income[i][0];
+                    const amount = parseNum(income[i][1]);
+                    incomeBreakdown[cat] = amount;
+                    incomeTotal += amount;
+                }
+            }
+
+            const expenseHtml = Object.entries(expenseBreakdown)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cat, val]) => `<div class="breakdown-card"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
+                .join('') + `<div class="total-card"><h4>TOTAL EXPENSES</h4><div class="amount">฿${fmt(expenseTotal)}</div></div>`;
+            document.getElementById('expenseBreakdown').innerHTML = expenseHtml;
+
+            const incomeHtml = Object.entries(incomeBreakdown)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cat, val]) => `<div class="breakdown-card" style="border-left-color: #70AD47;"><h4>${cat}</h4><div class="amount" style="color: #70AD47;">฿${fmt(val)}</div></div>`)
+                .join('') + `<div class="total-card" style="background: linear-gradient(135deg, #70AD47 0%, #5a8a39 100%);"><h4>TOTAL INCOME</h4><div class="amount">฿${fmt(incomeTotal)}</div></div>`;
+            document.getElementById('incomeBreakdown').innerHTML = incomeHtml;
 
             const topArtists = Object.entries(artists).sort((a, b) => b[1] - a[1]).slice(0, 3);
             document.getElementById('topArtists').innerHTML = topArtists
