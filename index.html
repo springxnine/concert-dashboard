@@ -136,33 +136,24 @@
     </div>
 
     <script>
-        const SHEET_ID = '1JjFwIutAXA4xtq4xgbrfH4DtknSuJ06YPaup5gijqtM';
-        
-        async function fetchSheet(gid) {
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`;
-            const res = await fetch(url);
-            const text = await res.text();
-            return JSON.parse(text.substring(47).slice(0, -2));
-        }
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxICiKwyI0ehP2M8S_nRrostrRajgZ6zKVpXQoLKJ4taBDML2uLUe1ZQ_jeHhUFwZbj/exec';
         
         async function loadData() {
             try {
-                const [concerts, stats] = await Promise.all([
-                    fetchSheet(930759061),
-                    fetchSheet(1894568605)
-                ]);
-
-                processData(concerts, stats);
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('dashboard').classList.add('active');
+                const response = await fetch(APPS_SCRIPT_URL);
+                const data = await response.json();
+                
+                if (data.success) {
+                    processData(data);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('dashboard').classList.add('active');
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('loadingText').textContent = '❌ Error: ' + error.message;
             }
-        }
-
-        function getValue(cell) {
-            return cell && cell.v !== undefined ? cell.v : null;
         }
 
         function parseNum(val) {
@@ -175,54 +166,48 @@
             return Math.round(num).toLocaleString();
         }
 
-        function processData(concerts, stats) {
-            // Count attended concerts
-            const rows = concerts.rows || [];
-            let attended = 0;
+        function processData(data) {
+            const concerts = data.concerts || [];
+            const stats = data.statistics || [];
             
-            for (let row of rows) {
-                const cells = row.c || [];
-                const status = getValue(cells[7]);
-                if (status && String(status).includes('Attended')) {
+            // Count attended
+            let attended = 0;
+            for (let i = 1; i < concerts.length - 1; i++) {
+                const row = concerts[i];
+                if (row[7] && String(row[7]).includes('Attended')) {
                     attended++;
                 }
             }
 
-            const statsRows = stats.rows || [];
-            
-            // Expense: Row 43-49 (indices 42-48) - A=Category, B=Total
+            // Expense from stats (row 42-48, col A=0, B=1)
             const expenses = {};
             let expTotal = 0;
-            for (let i = 42; i <= 48 && i < statsRows.length; i++) {
-                const cells = statsRows[i].c || [];
-                const cat = getValue(cells[0]);
-                const val = parseNum(getValue(cells[1]));
-                if (cat) {
-                    const catStr = String(cat).trim();
-                    if (catStr) {
-                        expenses[catStr] = val;
+            for (let i = 42; i <= 48; i++) {
+                if (stats[i]) {
+                    const cat = stats[i][0];
+                    const val = parseNum(stats[i][1]);
+                    if (cat) {
+                        expenses[String(cat).trim()] = val;
                         expTotal += val;
                     }
                 }
             }
 
-            // Income: Row 53-56 (indices 52-55) - A=Category, B=Total
+            // Income from stats (row 52-55, col A=0, B=1)
             const incomes = {};
             let incTotal = 0;
-            for (let i = 52; i <= 55 && i < statsRows.length; i++) {
-                const cells = statsRows[i].c || [];
-                const cat = getValue(cells[0]);
-                const val = parseNum(getValue(cells[1]));
-                if (cat) {
-                    const catStr = String(cat).trim();
-                    if (catStr) {
-                        incomes[catStr] = val;
+            for (let i = 52; i <= 55; i++) {
+                if (stats[i]) {
+                    const cat = stats[i][0];
+                    const val = parseNum(stats[i][1]);
+                    if (cat) {
+                        incomes[String(cat).trim()] = val;
                         incTotal += val;
                     }
                 }
             }
 
-            // Update main cards
+            // Update cards
             document.getElementById('totalAttended').textContent = attended;
             document.getElementById('totalExpense').textContent = '฿' + fmt(expTotal);
             document.getElementById('totalIncome').textContent = '฿' + fmt(incTotal);
