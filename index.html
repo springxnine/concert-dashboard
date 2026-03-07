@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎵 Concert Archives Dashboard</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI'; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 30px 20px; }
@@ -16,26 +15,21 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 50px; }
         .stat-card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
-        .stat-card .label { font-size: 0.85em; color: #999; text-transform: uppercase; margin-bottom: 12px; }
+        .stat-card .label { font-size: 0.85em; color: #999; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
         .stat-card .value { font-size: 2.5em; font-weight: 700; color: #667eea; }
         .stat-card.green .value { color: #70AD47; }
         .stat-card.orange .value { color: #FF9F43; }
-        .dashboard { display: none; }
-        .dashboard.active { display: block; }
         .section-title { color: white; font-size: 1.7em; margin: 50px 0 30px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); font-weight: 600; }
         .content-box { background: white; border-radius: 15px; padding: 35px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); margin-bottom: 40px; }
         .breakdown-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
         .breakdown-card { background: #f8f9fb; padding: 20px; border-radius: 10px; border-left: 4px solid #667eea; }
         .breakdown-card h4 { font-weight: 600; color: #333; margin-bottom: 10px; }
         .breakdown-card .amount { font-size: 1.5em; color: #667eea; font-weight: 700; }
-        .total-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; grid-column: 1 / -1; color: white; }
+        .total-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; grid-column: 1 / -1; }
+        .total-card h4 { color: white; font-weight: 600; margin-bottom: 10px; }
         .total-card .amount { font-size: 2em; color: white; font-weight: 700; }
-        .list-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-        .list-item { background: #f8f9fb; padding: 25px; border-radius: 10px; border-left: 4px solid #667eea; text-align: center; }
-        .list-rank { font-size: 2em; margin-bottom: 12px; }
-        .list-name { font-weight: 600; color: #333; margin-bottom: 10px; }
-        .list-count { font-weight: 700; color: #667eea; font-size: 1.3em; }
-        .footer { text-align: center; color: white; margin-top: 60px; padding: 30px; opacity: 0.9; }
+        .dashboard { display: none; }
+        .dashboard.active { display: block; }
     </style>
 </head>
 <body>
@@ -56,12 +50,12 @@
                     <div class="value" id="totalAttended">0</div>
                 </div>
                 <div class="stat-card orange">
-                    <div class="label">Total Ticket Cost</div>
-                    <div class="value" id="totalTicketCost">฿0</div>
+                    <div class="label">Total Expense</div>
+                    <div class="value" id="totalExpense">฿0</div>
                 </div>
                 <div class="stat-card">
-                    <div class="label">Favorite Artist</div>
-                    <div class="value" id="favoriteArtist">-</div>
+                    <div class="label">Total Income</div>
+                    <div class="value" id="totalIncome">฿0</div>
                 </div>
             </div>
 
@@ -74,15 +68,10 @@
             <div class="content-box">
                 <div class="breakdown-grid" id="incomeBreakdown"></div>
             </div>
-
-            <div class="section-title">🎤 TOP ARTISTS</div>
-            <div class="content-box">
-                <div class="list-grid" id="topArtists"></div>
-            </div>
         </div>
 
-        <div class="footer">
-            <p>🎵 Concert Archives Dashboard</p>
+        <div style="text-align: center; color: white; margin-top: 60px;">
+            <p>🎵 Real-time sync from Google Sheets</p>
         </div>
     </div>
 
@@ -98,12 +87,12 @@
         
         async function loadData() {
             try {
-                const [concerts, statistics] = await Promise.all([
+                const [concerts, stats] = await Promise.all([
                     fetchSheet(930759061),
                     fetchSheet(1894568605)
                 ]);
 
-                processData(concerts, statistics);
+                processData(concerts, stats);
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('dashboard').classList.add('active');
             } catch (error) {
@@ -113,8 +102,7 @@
         }
 
         function getValue(cell) {
-            if (!cell) return null;
-            return cell.v !== undefined ? cell.v : null;
+            return cell && cell.v !== undefined ? cell.v : null;
         }
 
         function parseNum(val) {
@@ -127,96 +115,66 @@
             return Math.round(num).toLocaleString();
         }
 
-        function processData(concerts, statistics) {
-            // Process concerts
-            const artists = {};
+        function processData(concerts, stats) {
+            const rows = concerts.rows || [];
             let attended = 0;
             
-            const concertRows = concerts.rows || [];
-            for (let row of concertRows) {
+            for (let row of rows) {
                 const cells = row.c || [];
                 const status = getValue(cells[7]);
-                const artist = getValue(cells[3]);
-                
                 if (status && String(status).includes('Attended')) {
                     attended++;
-                    if (artist) {
-                        const artistStr = String(artist).trim();
-                        artists[artistStr] = (artists[artistStr] || 0) + 1;
-                    }
                 }
             }
 
-            // Process Statistics sheet - Expense Breakdown (Row 43-49, Col A=Category, B=Total)
-            const statsRows = statistics.rows || [];
-            const expenseBreakdown = {};
-            let expTotal = 0;
+            const statsRows = stats.rows || [];
             
-            // Row 43-49 = index 42-48
+            // Expense: Row 43-49 (index 42-48)
+            const expenses = {};
+            let expTotal = 0;
             for (let i = 42; i <= 48 && i < statsRows.length; i++) {
                 const cells = statsRows[i].c || [];
                 const cat = getValue(cells[0]);
-                const val = getValue(cells[1]);
-                
-                if (cat && val) {
-                    const catStr = String(cat).trim();
-                    const amount = parseNum(val);
-                    if (catStr && amount > 0) {
-                        expenseBreakdown[catStr] = amount;
-                        expTotal += amount;
-                    }
+                const val = parseNum(getValue(cells[1]));
+                if (cat && val > 0) {
+                    expenses[String(cat).trim()] = val;
+                    expTotal += val;
                 }
             }
 
-            // Process Statistics sheet - Income Breakdown (Row 53-56, Col A=Category, B=Total)
-            const incomeBreakdown = {};
+            // Income: Row 53-56 (index 52-55)
+            const incomes = {};
             let incTotal = 0;
-            
-            // Row 53-56 = index 52-55
             for (let i = 52; i <= 55 && i < statsRows.length; i++) {
                 const cells = statsRows[i].c || [];
                 const cat = getValue(cells[0]);
-                const val = getValue(cells[1]);
-                
-                if (cat && val) {
-                    const catStr = String(cat).trim();
-                    const amount = parseNum(val);
-                    if (catStr && amount > 0) {
-                        incomeBreakdown[catStr] = amount;
-                        incTotal += amount;
-                    }
+                const val = parseNum(getValue(cells[1]));
+                if (cat && val > 0) {
+                    incomes[String(cat).trim()] = val;
+                    incTotal += val;
                 }
             }
 
-            const topArtist = Object.entries(artists).sort((a, b) => b[1] - a[1])[0];
-
+            // Update cards
             document.getElementById('totalAttended').textContent = attended;
-            document.getElementById('totalTicketCost').textContent = '฿0';
-            document.getElementById('favoriteArtist').textContent = topArtist ? topArtist[0] : '-';
+            document.getElementById('totalExpense').textContent = '฿' + fmt(expTotal);
+            document.getElementById('totalIncome').textContent = '฿' + fmt(incTotal);
 
-            // Expenses
-            let expenseHtml = Object.entries(expenseBreakdown)
+            // Expense breakdown
+            let expHtml = Object.entries(expenses)
                 .sort((a, b) => b[1] - a[1])
                 .map(([cat, val]) => `<div class="breakdown-card"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
                 .join('');
-            expenseHtml += `<div class="total-card"><h4>TOTAL EXPENSES</h4><div class="amount">฿${fmt(expTotal)}</div></div>`;
-            document.getElementById('expenseBreakdown').innerHTML = expenseHtml;
+            expHtml += `<div class="total-card"><h4>TOTAL</h4><div class="amount">฿${fmt(expTotal)}</div></div>`;
+            document.getElementById('expenseBreakdown').innerHTML = expHtml;
 
-            // Income
-            let incomeHtml = Object.entries(incomeBreakdown)
+            // Income breakdown
+            let incHtml = Object.entries(incomes)
                 .sort((a, b) => b[1] - a[1])
                 .map(([cat, val]) => `<div class="breakdown-card"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
                 .join('');
-            incomeHtml += `<div class="total-card"><h4>TOTAL INCOME</h4><div class="amount">฿${fmt(incTotal)}</div></div>`;
-            document.getElementById('incomeBreakdown').innerHTML = incomeHtml;
-
-            // Top artists
-            const topArtists = Object.entries(artists).sort((a, b) => b[1] - a[1]).slice(0, 3);
-            document.getElementById('topArtists').innerHTML = topArtists
-                .map(([name, count], i) => {
-                    const emoji = ['🥇', '🥈', '🥉'][i];
-                    return `<div class="list-item"><div class="list-rank">${emoji}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`;
-                }).join('');
+            incHtml += `<div class="total-card"><h4>TOTAL</h4><div class="amount">฿${fmt(incTotal)}</div></div>`;
+            document.getElementById('incomeBreakdown').innerHTML = incHtml;
         }
 
         window.addEventListener('load', loadData);
