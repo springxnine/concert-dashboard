@@ -4,103 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎵 Concert Archives Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Poppins', sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            min-height: 100vh; 
-            padding: 40px 20px;
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header { text-align: center; color: white; margin-bottom: 50px; }
-        .header h1 { font-size: 3.5em; font-weight: 700; margin-bottom: 10px; text-shadow: 2px 2px 10px rgba(0,0,0,0.2); }
-        .header p { font-size: 1.1em; opacity: 0.9; }
-        
-        .loading { text-align: center; color: white; padding: 60px 20px; }
-        .loading-spinner { 
-            display: inline-block; 
-            width: 50px; 
-            height: 50px; 
-            border: 4px solid rgba(255,255,255,0.3); 
-            border-top: 4px solid white; 
-            border-radius: 50%; 
-            animation: spin 1s linear infinite; 
-            margin-bottom: 20px;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 30px 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 30px; }
+        .header h1 { font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px 8px rgba(0,0,0,0.3); font-weight: 700; }
+        .loading { text-align: center; color: white; padding: 40px; font-size: 1.2em; }
+        .loading-spinner { display: inline-block; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-bottom: 60px; }
-        .stat-card { 
-            background: white; 
-            border-radius: 20px; 
-            padding: 35px; 
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15); 
-            text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 30px 70px rgba(0,0,0,0.2); }
-        .stat-card .label { font-size: 0.9em; color: #999; text-transform: uppercase; margin-bottom: 15px; font-weight: 600; letter-spacing: 1px; }
-        .stat-card .value { font-size: 3em; font-weight: 700; color: #667eea; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 50px; }
+        .stat-card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: all 0.3s ease; text-align: center; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.3); }
+        .stat-card .label { font-size: 0.85em; color: #999; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
+        .stat-card .value { font-size: 2.5em; font-weight: 700; color: #667eea; }
         .stat-card.green .value { color: #70AD47; }
         .stat-card.orange .value { color: #FF9F43; }
-        
-        .section-title { color: white; font-size: 2em; margin: 60px 0 30px 0; font-weight: 700; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
-        
-        .content-box { 
-            background: white; 
-            border-radius: 20px; 
-            padding: 40px; 
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15); 
-            margin-bottom: 50px;
-        }
-        
-        .breakdown-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
-        .breakdown-card { 
-            background: linear-gradient(135deg, #f5f7fa 0%, #f0f3f8 100%); 
-            padding: 25px; 
-            border-radius: 15px; 
-            border-left: 5px solid #667eea;
-            transition: transform 0.2s ease;
-        }
-        .breakdown-card:hover { transform: translateX(5px); }
-        .breakdown-card h4 { font-weight: 600; color: #333; margin-bottom: 12px; font-size: 1em; }
-        .breakdown-card .amount { font-size: 1.8em; color: #667eea; font-weight: 700; }
-        
-        .total-card { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            padding: 25px; 
-            border-radius: 15px; 
-            text-align: center; 
-            grid-column: 1 / -1;
-        }
-        .total-card h4 { color: white; font-weight: 600; margin-bottom: 12px; font-size: 0.95em; opacity: 0.9; }
-        .total-card .amount { font-size: 2.2em; color: white; font-weight: 700; }
-        
+        .section-title { color: white; font-size: 1.7em; margin: 50px 0 30px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); font-weight: 600; }
+        .content-box { background: white; border-radius: 15px; padding: 35px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); margin-bottom: 40px; }
+        .content-box h2 { font-size: 1.5em; margin-bottom: 30px; color: #333; border-bottom: 3px solid #667eea; padding-bottom: 12px; }
+        .chart-container { position: relative; height: 400px; margin-bottom: 20px; }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; margin-bottom: 40px; }
+        .chart-box { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); }
+        .chart-box h2 { font-size: 1.3em; margin-bottom: 20px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .list-container { background: white; border-radius: 15px; padding: 35px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); margin-bottom: 40px; }
+        .list-container h2 { font-size: 1.5em; margin-bottom: 30px; color: #333; border-bottom: 3px solid #667eea; padding-bottom: 12px; }
+        .list-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .list-item { background: #f8f9fb; padding: 25px; border-radius: 10px; border-left: 4px solid #667eea; text-align: center; }
+        .list-rank { font-size: 2em; margin-bottom: 12px; }
+        .list-name { font-weight: 600; color: #333; margin-bottom: 10px; font-size: 1.1em; }
+        .list-count { font-weight: 700; color: #667eea; font-size: 1.3em; margin-bottom: 8px; }
+        .list-spending { font-size: 0.9em; color: #FF9F43; font-weight: 600; }
+        .latest-card { background: #f8f9fb; padding: 20px; border-radius: 10px; border-left: 4px solid #70AD47; margin-bottom: 15px; }
+        .latest-card .date { font-size: 0.9em; color: #999; margin-bottom: 5px; }
+        .latest-card .artist { font-size: 1.2em; font-weight: 600; color: #333; }
+        .latest-card .event { font-size: 0.9em; color: #666; margin-top: 5px; }
+        .empty-state { text-align: center; padding: 40px; color: #999; font-style: italic; }
         .dashboard { display: none; }
         .dashboard.active { display: block; }
-        
-        .footer { text-align: center; color: white; margin-top: 80px; padding: 30px; font-size: 1em; opacity: 0.85; }
-        
-        @media (max-width: 768px) {
-            .header h1 { font-size: 2.5em; }
-            .stats-grid { grid-template-columns: 1fr; }
-            .stat-card { padding: 25px; }
-            .stat-card .value { font-size: 2.2em; }
-        }
+        .footer { text-align: center; color: white; margin-top: 60px; padding: 30px; border-top: 1px solid rgba(255,255,255,0.2); opacity: 0.9; font-size: 0.9em; }
+        @media (max-width: 768px) { .header h1 { font-size: 2em; } .stats-grid { grid-template-columns: 1fr; } .charts-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎵 CONCERT ARCHIVES</h1>
-            <p>Dashboard</p>
+            <h1>🎵 CONCERT ARCHIVES DASHBOARD</h1>
+            <p>Real-time Data from Google Sheets</p>
         </div>
 
         <div class="loading" id="loading">
             <div class="loading-spinner"></div>
-            <p id="loadingText" style="font-size: 1.1em; margin-top: 20px;">Loading your data...</p>
+            <p id="loadingText">Loading data from Google Sheets...</p>
         </div>
 
         <div class="dashboard" id="dashboard">
@@ -110,34 +66,71 @@
                     <div class="value" id="totalAttended">0</div>
                 </div>
                 <div class="stat-card orange">
-                    <div class="label">Total Expense</div>
-                    <div class="value" id="totalExpense">฿0</div>
+                    <div class="label">Total Ticket Cost</div>
+                    <div class="value" id="totalTicketCost">฿0</div>
                 </div>
                 <div class="stat-card">
-                    <div class="label">Total Income</div>
-                    <div class="value" id="totalIncome">฿0</div>
+                    <div class="label">Favorite Artist</div>
+                    <div class="value" id="favoriteArtist">-</div>
                 </div>
             </div>
 
-            <div class="section-title">💸 Expense Breakdown</div>
-            <div class="content-box">
-                <div class="breakdown-grid" id="expenseBreakdown"></div>
+            <div class="section-title">📊 CHARTS & ANALYTICS</div>
+            <div class="charts-grid">
+                <div class="chart-box">
+                    <h2>Concerts by Year</h2>
+                    <div class="chart-container"><canvas id="concertsByYearChart"></canvas></div>
+                </div>
+                <div class="chart-box">
+                    <h2>Spending by Year</h2>
+                    <div class="chart-container"><canvas id="spendingByYearChart"></canvas></div>
+                </div>
+                <div class="chart-box" style="grid-column: 1 / -1;">
+                    <h2>Events by Type</h2>
+                    <div class="chart-container"><canvas id="eventTypesChart"></canvas></div>
+                </div>
             </div>
 
-            <div class="section-title">💵 Income Breakdown</div>
+            <div class="section-title">✨ RECENT CONCERT</div>
             <div class="content-box">
-                <div class="breakdown-grid" id="incomeBreakdown"></div>
+                <h2>Latest Attended Concerts</h2>
+                <div id="latestConcerts"></div>
+            </div>
+
+            <div class="section-title">🎤 TOP ARTISTS</div>
+            <div class="list-container">
+                <h2>Top 3 Most Attended Artists</h2>
+                <div class="list-grid" id="topArtists"></div>
+            </div>
+
+            <div class="section-title">🏟️ TOP VENUES</div>
+            <div class="list-container">
+                <h2>Top 3 Most Visited Venues</h2>
+                <div class="list-grid" id="topVenues"></div>
+            </div>
+
+            <div class="section-title">💸 EXPENSES</div>
+            <div class="content-box">
+                <h2>Expense Breakdown</h2>
+                <div class="list-grid" id="expenseBreakdown"></div>
+            </div>
+
+            <div class="section-title">💵 INCOME</div>
+            <div class="content-box">
+                <h2>Income Breakdown</h2>
+                <div class="list-grid" id="incomeBreakdown"></div>
             </div>
         </div>
 
         <div class="footer">
-            <p>✨ Real-time sync from Google Sheets ✨</p>
+            <p>🎵 Concert Archives Dashboard | Real-time data from Google Sheets</p>
         </div>
     </div>
 
     <script>
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxICiKwyI0ehP2M8S_nRrostrRajgZ6zKVpXQoLKJ4taBDML2uLUe1ZQ_jeHhUFwZbj/exec';
-        
+        let chartInstances = { concertsByYear: null, spendingByYear: null, eventTypes: null };
+
         async function loadData() {
             try {
                 const response = await fetch(APPS_SCRIPT_URL);
@@ -148,12 +141,17 @@
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('dashboard').classList.add('active');
                 } else {
-                    throw new Error(data.error || 'Unknown error');
+                    throw new Error(data.error || 'Failed to load data');
                 }
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('loadingText').textContent = '❌ Error: ' + error.message;
             }
+        }
+
+        function getValue(cell) {
+            if (!cell) return null;
+            return cell.v !== undefined ? cell.v : null;
         }
 
         function parseNum(val) {
@@ -163,72 +161,195 @@
         }
 
         function fmt(num) {
-            return Math.round(num).toLocaleString();
+            return Math.round(num).toLocaleString('en');
+        }
+
+        function parseDate(val) {
+            if (!val) return null;
+            if (typeof val === 'number') {
+                const excelEpoch = new Date(1899, 11, 30);
+                const date = new Date(excelEpoch.getTime() + val * 86400000);
+                return date;
+            }
+            return new Date(val);
         }
 
         function processData(data) {
             const concerts = data.concerts || [];
             const stats = data.statistics || [];
-            
-            // Count attended
-            let attended = 0;
+
+            const artists = {}, venues = {}, eventTypes = {}, latestAttended = [];
+            const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {};
+            let attendedCount = 0;
+
+            // Process concerts (skip header and last row)
             for (let i = 1; i < concerts.length - 1; i++) {
                 const row = concerts[i];
-                if (row[7] && String(row[7]).includes('Attended')) {
-                    attended++;
+                if (!row[0]) continue;
+
+                const date = row[1];
+                const eventType = row[2];
+                const artist = row[3];
+                const eventName = row[4];
+                const venue = row[5];
+                const status = row[7];
+                const actualPrice = row[13];
+
+                if (status && String(status).includes('Attended')) {
+                    attendedCount++;
+                    
+                    let year = 'Unknown';
+                    if (date) {
+                        const dateObj = parseDate(date);
+                        if (dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970) {
+                            year = dateObj.getFullYear();
+                        }
+                    }
+
+                    concertsByYear[year] = (concertsByYear[year] || 0) + 1;
+                    
+                    const price = parseNum(actualPrice);
+                    spendingByYear[year] = (spendingByYear[year] || 0) + price;
+
+                    latestAttended.push({ date, artist, event: eventName, venue });
+
+                    if (artist) {
+                        const artistStr = String(artist).trim();
+                        if (artistStr) artists[artistStr] = (artists[artistStr] || 0) + 1;
+                    }
+                    if (venue) {
+                        const venueStr = String(venue).trim();
+                        if (venueStr) venues[venueStr] = (venues[venueStr] || 0) + 1;
+                    }
+                    if (price > 0 && artist) {
+                        const artistStr = String(artist).trim();
+                        spendingByArtist[artistStr] = (spendingByArtist[artistStr] || 0) + price;
+                    }
+                    if (eventType) {
+                        const typeStr = String(eventType).trim();
+                        if (typeStr) eventTypes[typeStr] = (eventTypes[typeStr] || 0) + 1;
+                    }
                 }
             }
 
-            // Expense from stats (row 42-48, col A=0, B=1)
+            const topArtist = Object.entries(artists).sort((a, b) => b[1] - a[1])[0];
+            const favoriteArtist = topArtist ? topArtist[0] : '-';
+
+            // Get totals from stats
+            let totalTicketCost = 0;
+            for (let i = 42; i <= 48 && i < stats.length; i++) {
+                if (stats[i]) {
+                    totalTicketCost += parseNum(stats[i][1] || 0);
+                }
+            }
+
+            document.getElementById('totalAttended').textContent = attendedCount;
+            document.getElementById('totalTicketCost').textContent = '฿' + fmt(totalTicketCost);
+            document.getElementById('favoriteArtist').textContent = favoriteArtist;
+
+            createCharts(concertsByYear, spendingByYear, eventTypes);
+
+            const latestHtml = latestAttended
+                .filter(c => c.date && c.artist)
+                .sort((a, b) => parseDate(b.date) - parseDate(a.date))
+                .slice(0, 2)
+                .map(c => {
+                    const dateObj = parseDate(c.date);
+                    const dateStr = dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970 
+                        ? dateObj.toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric'})
+                        : 'N/A';
+                    return `<div class="latest-card"><div class="date">📅 ${dateStr}</div><div class="artist">🎤 ${c.artist || 'Unknown'}</div><div class="event">${c.event || ''}</div><div class="event">🏟️ ${c.venue || ''}</div></div>`;
+                }).join('');
+            document.getElementById('latestConcerts').innerHTML = latestHtml || '<div class="empty-state">No attended concerts</div>';
+
+            const topArtists = Object.entries(artists).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            document.getElementById('topArtists').innerHTML = topArtists
+                .map(([name, count], i) => {
+                    const emoji = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+                    const spending = spendingByArtist[name] || 0;
+                    return `<div class="list-item"><div class="list-rank">${emoji}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div><div class="list-spending">฿${fmt(spending)}</div></div>`;
+                }).join('');
+
+            const topVenues = Object.entries(venues).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            document.getElementById('topVenues').innerHTML = topVenues
+                .map(([name, count], i) => {
+                    const emoji = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+                    return `<div class="list-item"><div class="list-rank">${emoji}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`;
+                }).join('');
+
+            // Expenses (Row 42-48, Col A=0, B=1)
             const expenses = {};
             let expTotal = 0;
-            for (let i = 42; i <= 48; i++) {
+            for (let i = 42; i <= 48 && i < stats.length; i++) {
                 if (stats[i]) {
                     const cat = stats[i][0];
                     const val = parseNum(stats[i][1]);
-                    if (cat) {
+                    if (cat && val > 0) {
                         expenses[String(cat).trim()] = val;
                         expTotal += val;
                     }
                 }
             }
+            const expHtml = Object.entries(expenses)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cat, val]) => `<div class="list-item"><h4>${cat}</h4><div class="list-count">฿${fmt(val)}</div></div>`)
+                .join('');
+            document.getElementById('expenseBreakdown').innerHTML = expHtml || '<div class="empty-state">No expenses</div>';
 
-            // Income from stats (row 52-55, col A=0, B=1)
+            // Income (Row 52-55, Col A=0, B=1)
             const incomes = {};
             let incTotal = 0;
-            for (let i = 52; i <= 55; i++) {
+            for (let i = 52; i <= 55 && i < stats.length; i++) {
                 if (stats[i]) {
                     const cat = stats[i][0];
                     const val = parseNum(stats[i][1]);
-                    if (cat) {
+                    if (cat && val > 0) {
                         incomes[String(cat).trim()] = val;
                         incTotal += val;
                     }
                 }
             }
-
-            // Update cards
-            document.getElementById('totalAttended').textContent = attended;
-            document.getElementById('totalExpense').textContent = '฿' + fmt(expTotal);
-            document.getElementById('totalIncome').textContent = '฿' + fmt(incTotal);
-
-            // Expense breakdown
-            let expHtml = Object.entries(expenses)
-                .filter(([cat, val]) => cat && val > 0)
+            const incHtml = Object.entries(incomes)
                 .sort((a, b) => b[1] - a[1])
-                .map(([cat, val]) => `<div class="breakdown-card"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
+                .map(([cat, val]) => `<div class="list-item"><h4>${cat}</h4><div class="list-count">฿${fmt(val)}</div></div>`)
                 .join('');
-            expHtml += `<div class="total-card"><h4>TOTAL EXPENSES</h4><div class="amount">฿${fmt(expTotal)}</div></div>`;
-            document.getElementById('expenseBreakdown').innerHTML = expHtml;
+            document.getElementById('incomeBreakdown').innerHTML = incHtml || '<div class="empty-state">No income</div>';
+        }
 
-            // Income breakdown
-            let incHtml = Object.entries(incomes)
-                .filter(([cat, val]) => cat && val > 0)
-                .sort((a, b) => b[1] - a[1])
-                .map(([cat, val]) => `<div class="breakdown-card"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
-                .join('');
-            incHtml += `<div class="total-card"><h4>TOTAL INCOME</h4><div class="amount">฿${fmt(incTotal)}</div></div>`;
-            document.getElementById('incomeBreakdown').innerHTML = incHtml;
+        function createCharts(concertsByYear, spendingByYear, eventTypesList) {
+            const chartColors = { primary: '#667eea', success: '#70AD47', warning: '#FF9F43', danger: '#FF6B6B', info: '#2E75DF' };
+
+            Object.values(chartInstances).forEach(chart => { if (chart) chart.destroy(); });
+
+            const yearsSorted = Object.keys(concertsByYear).filter(y => y !== 'Unknown').sort();
+            const concertCounts = yearsSorted.map(y => concertsByYear[y]);
+            
+            chartInstances.concertsByYear = new Chart(document.getElementById('concertsByYearChart'), {
+                type: 'bar',
+                data: { labels: yearsSorted, datasets: [{ label: 'Attended', data: concertCounts, backgroundColor: chartColors.primary, borderRadius: 5 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            });
+
+            const spendingCounts = yearsSorted.map(y => spendingByYear[y]);
+            chartInstances.spendingByYear = new Chart(document.getElementById('spendingByYearChart'), {
+                type: 'line',
+                data: { labels: yearsSorted, datasets: [{ label: 'Spending (฿)', data: spendingCounts, borderColor: chartColors.warning, backgroundColor: 'rgba(255, 159, 67, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointBackgroundColor: chartColors.warning, pointRadius: 5 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+
+            const eventEntries = Object.entries(eventTypesList).sort((a, b) => b[1] - a[1]);
+            const eventLabels = eventEntries.map(e => e[0]);
+            const eventCounts = eventEntries.map(e => e[1]);
+            const eventColors = eventLabels.map((_, i) => {
+                const colorArray = [chartColors.primary, chartColors.success, chartColors.warning, chartColors.danger, chartColors.info];
+                return colorArray[i % colorArray.length];
+            });
+
+            chartInstances.eventTypes = new Chart(document.getElementById('eventTypesChart'), {
+                type: 'pie',
+                data: { labels: eventLabels, datasets: [{ data: eventCounts, backgroundColor: eventColors, borderWidth: 2, borderColor: 'white' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 15, font: { size: 11 } } } } }
+            });
         }
 
         window.addEventListener('load', loadData);
