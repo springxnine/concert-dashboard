@@ -40,6 +40,12 @@
         .latest-card .date { font-size: 0.9em; color: #999; margin-bottom: 5px; }
         .latest-card .artist { font-size: 1.2em; font-weight: 600; color: #333; }
         .latest-card .event { font-size: 0.9em; color: #666; margin-top: 5px; }
+        .breakdown-item { background: #f8f9fb; padding: 20px; border-radius: 10px; border-left: 4px solid #667eea; text-align: left; }
+        .breakdown-item h4 { font-weight: 600; color: #333; margin-bottom: 8px; }
+        .breakdown-item .amount { font-size: 1.3em; color: #667eea; font-weight: 700; }
+        .breakdown-total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: right; color: white; margin-top: 20px; }
+        .breakdown-total h4 { font-weight: 600; margin-bottom: 8px; opacity: 0.9; }
+        .breakdown-total .amount { font-size: 1.8em; font-weight: 700; }
         .empty-state { text-align: center; padding: 40px; color: #999; font-style: italic; }
         .dashboard { display: none; }
         .dashboard.active { display: block; }
@@ -66,7 +72,7 @@
                     <div class="value" id="totalAttended">0</div>
                 </div>
                 <div class="stat-card orange">
-                    <div class="label">Total Ticket Cost</div>
+                    <div class="label">Total Ticket Cost (Net)</div>
                     <div class="value" id="totalTicketCost">฿0</div>
                 </div>
                 <div class="stat-card">
@@ -82,7 +88,7 @@
                     <div class="chart-container"><canvas id="concertsByYearChart"></canvas></div>
                 </div>
                 <div class="chart-box">
-                    <h2>Spending by Year</h2>
+                    <h2>Spending by Year (Net)</h2>
                     <div class="chart-container"><canvas id="spendingByYearChart"></canvas></div>
                 </div>
                 <div class="chart-box" style="grid-column: 1 / -1;">
@@ -112,13 +118,13 @@
             <div class="section-title">💸 EXPENSES</div>
             <div class="content-box">
                 <h2>Expense Breakdown</h2>
-                <div class="list-grid" id="expenseBreakdown"></div>
+                <div id="expenseBreakdown"></div>
             </div>
 
             <div class="section-title">💵 INCOME</div>
             <div class="content-box">
                 <h2>Income Breakdown</h2>
-                <div class="list-grid" id="incomeBreakdown"></div>
+                <div id="incomeBreakdown"></div>
             </div>
         </div>
 
@@ -149,9 +155,9 @@
             }
         }
 
-        function getValue(cell) {
-            if (!cell) return null;
-            return cell.v !== undefined ? cell.v : null;
+        function getValue(val) {
+            if (!val) return null;
+            return val.v !== undefined ? val.v : null;
         }
 
         function parseNum(val) {
@@ -181,8 +187,10 @@
             const artists = {}, venues = {}, eventTypes = {}, latestAttended = [];
             const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {};
             let attendedCount = 0;
+            let totalNetCost = 0;
 
             // Process concerts (skip header and last row)
+            // Column N = 13 (Actual Price), Column S = 18 (Refund Amount)
             for (let i = 1; i < concerts.length - 1; i++) {
                 const row = concerts[i];
                 if (!row[0]) continue;
@@ -194,6 +202,7 @@
                 const venue = row[5];
                 const status = row[7];
                 const actualPrice = row[13];
+                const refundAmount = row[18];
 
                 if (status && String(status).includes('Attended')) {
                     attendedCount++;
@@ -208,8 +217,13 @@
 
                     concertsByYear[year] = (concertsByYear[year] || 0) + 1;
                     
-                    const price = parseNum(actualPrice);
-                    spendingByYear[year] = (spendingByYear[year] || 0) + price;
+                    // Net cost = Actual Price - Refund Amount
+                    const actualPriceNum = parseNum(actualPrice);
+                    const refundNum = parseNum(refundAmount);
+                    const netCost = actualPriceNum - refundNum;
+                    
+                    spendingByYear[year] = (spendingByYear[year] || 0) + netCost;
+                    totalNetCost += netCost;
 
                     latestAttended.push({ date, artist, event: eventName, venue });
 
@@ -221,9 +235,9 @@
                         const venueStr = String(venue).trim();
                         if (venueStr) venues[venueStr] = (venues[venueStr] || 0) + 1;
                     }
-                    if (price > 0 && artist) {
+                    if (netCost > 0 && artist) {
                         const artistStr = String(artist).trim();
-                        spendingByArtist[artistStr] = (spendingByArtist[artistStr] || 0) + price;
+                        spendingByArtist[artistStr] = (spendingByArtist[artistStr] || 0) + netCost;
                     }
                     if (eventType) {
                         const typeStr = String(eventType).trim();
@@ -235,16 +249,8 @@
             const topArtist = Object.entries(artists).sort((a, b) => b[1] - a[1])[0];
             const favoriteArtist = topArtist ? topArtist[0] : '-';
 
-            // Get totals from stats
-            let totalTicketCost = 0;
-            for (let i = 42; i <= 48 && i < stats.length; i++) {
-                if (stats[i]) {
-                    totalTicketCost += parseNum(stats[i][1] || 0);
-                }
-            }
-
             document.getElementById('totalAttended').textContent = attendedCount;
-            document.getElementById('totalTicketCost').textContent = '฿' + fmt(totalTicketCost);
+            document.getElementById('totalTicketCost').textContent = '฿' + fmt(totalNetCost);
             document.getElementById('favoriteArtist').textContent = favoriteArtist;
 
             createCharts(concertsByYear, spendingByYear, eventTypes);
@@ -277,42 +283,46 @@
                     return `<div class="list-item"><div class="list-rank">${emoji}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`;
                 }).join('');
 
-            // Expenses (Row 42-48, Col A=0, B=1)
+            // Expenses (Row 43-49, Col A=0, B=1)
             const expenses = {};
             let expTotal = 0;
             for (let i = 42; i <= 48 && i < stats.length; i++) {
                 if (stats[i]) {
-                    const cat = stats[i][0];
-                    const val = parseNum(stats[i][1]);
+                    const cat = getValue(stats[i].c ? stats[i].c[0] : stats[i][0]);
+                    const val = parseNum(getValue(stats[i].c ? stats[i].c[1] : stats[i][1]));
                     if (cat && val > 0) {
-                        expenses[String(cat).trim()] = val;
+                        const catStr = String(cat).trim();
+                        expenses[catStr] = val;
                         expTotal += val;
                     }
                 }
             }
-            const expHtml = Object.entries(expenses)
+            let expHtml = Object.entries(expenses)
                 .sort((a, b) => b[1] - a[1])
-                .map(([cat, val]) => `<div class="list-item"><h4>${cat}</h4><div class="list-count">฿${fmt(val)}</div></div>`)
+                .map(([cat, val]) => `<div class="breakdown-item"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
                 .join('');
+            expHtml += `<div class="breakdown-total"><h4>TOTAL EXPENSES</h4><div class="amount">฿${fmt(expTotal)}</div></div>`;
             document.getElementById('expenseBreakdown').innerHTML = expHtml || '<div class="empty-state">No expenses</div>';
 
-            // Income (Row 52-55, Col A=0, B=1)
+            // Income (Row 53-56, Col A=0, B=1)
             const incomes = {};
             let incTotal = 0;
             for (let i = 52; i <= 55 && i < stats.length; i++) {
                 if (stats[i]) {
-                    const cat = stats[i][0];
-                    const val = parseNum(stats[i][1]);
+                    const cat = getValue(stats[i].c ? stats[i].c[0] : stats[i][0]);
+                    const val = parseNum(getValue(stats[i].c ? stats[i].c[1] : stats[i][1]));
                     if (cat && val > 0) {
-                        incomes[String(cat).trim()] = val;
+                        const catStr = String(cat).trim();
+                        incomes[catStr] = val;
                         incTotal += val;
                     }
                 }
             }
-            const incHtml = Object.entries(incomes)
+            let incHtml = Object.entries(incomes)
                 .sort((a, b) => b[1] - a[1])
-                .map(([cat, val]) => `<div class="list-item"><h4>${cat}</h4><div class="list-count">฿${fmt(val)}</div></div>`)
+                .map(([cat, val]) => `<div class="breakdown-item"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
                 .join('');
+            incHtml += `<div class="breakdown-total"><h4>TOTAL INCOME</h4><div class="amount">฿${fmt(incTotal)}</div></div>`;
             document.getElementById('incomeBreakdown').innerHTML = incHtml || '<div class="empty-state">No income</div>';
         }
 
