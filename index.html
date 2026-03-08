@@ -134,21 +134,27 @@
     </div>
 
     <script>
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxICiKwyI0ehP2M8S_nRrostrRajgZ6zKVpXQoLKJ4taBDML2uLUe1ZQ_jeHhUFwZbj/exec';
+        const SHEET_ID = '1JjFwIutAXA4xtq4xgbrfH4DtknSuJ06YPaup5gijqtM';
         let chartInstances = { concertsByYear: null, spendingByYear: null, eventTypes: null };
+
+        async function fetchSheet(gid) {
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`;
+            const res = await fetch(url);
+            const text = await res.text();
+            return JSON.parse(text.substring(47).slice(0, -2));
+        }
 
         async function loadData() {
             try {
-                const response = await fetch(APPS_SCRIPT_URL);
-                const data = await response.json();
-                
-                if (data.success) {
-                    processData(data);
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('dashboard').classList.add('active');
-                } else {
-                    throw new Error(data.error || 'Failed to load data');
-                }
+                const [concerts, expenses, income] = await Promise.all([
+                    fetchSheet(930759061),
+                    fetchSheet(712406437),
+                    fetchSheet(1387421194)
+                ]);
+
+                processData(concerts, expenses, income);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').classList.add('active');
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('loadingText').textContent = '❌ Error: ' + error.message;
@@ -180,51 +186,50 @@
             return new Date(val);
         }
 
-        function processData(data) {
-            const concerts = data.concerts || [];
-            const stats = data.statistics || [];
+        function processData(concerts, expenses, income) {
+            const concertsRows = concerts.rows || [];
+            const expenseRows = expenses.rows || [];
+            const incomeRows = income.rows || [];
 
             const artists = {}, venues = {}, eventTypes = {}, latestAttended = [];
             const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {};
             let attendedCount = 0;
             let totalNetCost = 0;
 
-            // Process concerts (skip header and last row)
+            // Process ALL concerts (not just Attended)
             // Column N = 13 (Actual Price), Column S = 18 (Refund Amount)
-            for (let i = 1; i < concerts.length - 1; i++) {
-                const row = concerts[i];
+            for (let i = 1; i < concertsRows.length - 1; i++) {
+                const row = concertsRows[i].c || [];
                 if (!row[0]) continue;
 
-                const date = row[1];
-                const eventType = row[2];
-                const artist = row[3];
-                const eventName = row[4];
-                const venue = row[5];
-                const status = row[7];
-                const actualPrice = row[13];
-                const refundAmount = row[18];
+                const date = getValue(row[1]);
+                const eventType = getValue(row[2]);
+                const artist = getValue(row[3]);
+                const eventName = getValue(row[4]);
+                const venue = getValue(row[5]);
+                const status = getValue(row[7]);
+                const actualPrice = parseNum(getValue(row[13]));
+                const refundAmount = parseNum(getValue(row[18]));
 
+                // Net cost = Actual Price - Refund (for ALL rows)
+                const netCost = actualPrice - refundAmount;
+                totalNetCost += netCost;
+
+                // Get year
+                let year = 'Unknown';
+                if (date) {
+                    const dateObj = parseDate(date);
+                    if (dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970) {
+                        year = dateObj.getFullYear();
+                    }
+                }
+
+                spendingByYear[year] = (spendingByYear[year] || 0) + netCost;
+
+                // Only count Attended for other stats
                 if (status && String(status).includes('Attended')) {
                     attendedCount++;
-                    
-                    let year = 'Unknown';
-                    if (date) {
-                        const dateObj = parseDate(date);
-                        if (dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970) {
-                            year = dateObj.getFullYear();
-                        }
-                    }
-
                     concertsByYear[year] = (concertsByYear[year] || 0) + 1;
-                    
-                    // Net cost = Actual Price - Refund Amount
-                    const actualPriceNum = parseNum(actualPrice);
-                    const refundNum = parseNum(refundAmount);
-                    const netCost = actualPriceNum - refundNum;
-                    
-                    spendingByYear[year] = (spendingByYear[year] || 0) + netCost;
-                    totalNetCost += netCost;
-
                     latestAttended.push({ date, artist, event: eventName, venue });
 
                     if (artist) {
@@ -283,18 +288,18 @@
                     return `<div class="list-item"><div class="list-rank">${emoji}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`;
                 }).join('');
 
-            // Expenses (Row 43-49, Col A=0, B=1)
-            const expenses = {};
+            // Expenses: Sum column M (index 12)
             let expTotal = 0;
-            for (let i = 42; i <= 48 && i < stats.length; i++) {
-                if (stats[i]) {
-                    const cat = getValue(stats[i].c ? stats[i].c[0] : stats[i][0]);
-                    const val = parseNum(getValue(stats[i].c ? stats[i].c[1] : stats[i][1]));
-                    if (cat && val > 0) {
-                        const catStr = String(cat).trim();
-                        expenses[catStr] = val;
-                        expTotal += val;
-                    }
+            const expenses = {};
+            for (let i = 1; i < expenseRows.length; i++) {
+                const row = expenseRows[i].c || [];
+                const catName = getValue(row[0]); // Column A
+                const amount = parseNum(getValue(row[12])); // Column M
+                
+                if (catName && amount > 0) {
+                    const catStr = String(catName).trim();
+                    expenses[catStr] = (expenses[catStr] || 0) + amount;
+                    expTotal += amount;
                 }
             }
             let expHtml = Object.entries(expenses)
@@ -304,18 +309,18 @@
             expHtml += `<div class="breakdown-total"><h4>TOTAL EXPENSES</h4><div class="amount">฿${fmt(expTotal)}</div></div>`;
             document.getElementById('expenseBreakdown').innerHTML = expHtml || '<div class="empty-state">No expenses</div>';
 
-            // Income (Row 53-56, Col A=0, B=1)
-            const incomes = {};
+            // Income: Sum column J (index 9)
             let incTotal = 0;
-            for (let i = 52; i <= 55 && i < stats.length; i++) {
-                if (stats[i]) {
-                    const cat = getValue(stats[i].c ? stats[i].c[0] : stats[i][0]);
-                    const val = parseNum(getValue(stats[i].c ? stats[i].c[1] : stats[i][1]));
-                    if (cat && val > 0) {
-                        const catStr = String(cat).trim();
-                        incomes[catStr] = val;
-                        incTotal += val;
-                    }
+            const incomes = {};
+            for (let i = 1; i < incomeRows.length; i++) {
+                const row = incomeRows[i].c || [];
+                const catName = getValue(row[0]); // Column A
+                const amount = parseNum(getValue(row[9])); // Column J
+                
+                if (catName && amount > 0) {
+                    const catStr = String(catName).trim();
+                    incomes[catStr] = (incomes[catStr] || 0) + amount;
+                    incTotal += amount;
                 }
             }
             let incHtml = Object.entries(incomes)
@@ -340,7 +345,7 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
             });
 
-            const spendingCounts = yearsSorted.map(y => spendingByYear[y]);
+            const spendingCounts = yearsSorted.map(y => spendingByYear[y] || 0);
             chartInstances.spendingByYear = new Chart(document.getElementById('spendingByYearChart'), {
                 type: 'line',
                 data: { labels: yearsSorted, datasets: [{ label: 'Spending (฿)', data: spendingCounts, borderColor: chartColors.warning, backgroundColor: 'rgba(255, 159, 67, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointBackgroundColor: chartColors.warning, pointRadius: 5 }] },
