@@ -14,6 +14,13 @@
         .loading { text-align: center; color: white; padding: 40px; font-size: 1.2em; }
         .loading-spinner { display: inline-block; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .filter-section { background: white; border-radius: 15px; padding: 25px; margin-bottom: 40px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end; }
+        .filter-group { display: flex; flex-direction: column; }
+        .filter-group label { font-weight: 600; color: #333; margin-bottom: 8px; font-size: 0.9em; }
+        .filter-group select, .filter-group input { padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s; }
+        .filter-group select:focus, .filter-group input:focus { outline: none; border-color: #667eea; }
+        .filter-btn { padding: 12px 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: transform 0.2s; }
+        .filter-btn:hover { transform: translateY(-2px); }
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 50px; }
         .stat-card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
         .stat-card .label { font-size: 0.85em; color: #999; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
@@ -48,7 +55,7 @@
         .dashboard { display: none; }
         .dashboard.active { display: block; }
         .footer { text-align: center; color: white; margin-top: 60px; padding: 30px; border-top: 1px solid rgba(255,255,255,0.2); opacity: 0.9; font-size: 0.9em; }
-        @media (max-width: 768px) { .header h1 { font-size: 2em; } .stats-grid { grid-template-columns: 1fr; } .charts-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .header h1 { font-size: 2em; } .stats-grid { grid-template-columns: 1fr; } .charts-grid { grid-template-columns: 1fr; } .filter-section { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -64,6 +71,26 @@
         </div>
 
         <div class="dashboard" id="dashboard">
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label>Filter by Year</label>
+                    <select id="yearFilter">
+                        <option value="">All Years</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Filter by Artist</label>
+                    <select id="artistFilter">
+                        <option value="">All Artists</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Search by Event</label>
+                    <input type="text" id="searchFilter" placeholder="Search event name...">
+                </div>
+                <button class="filter-btn" onclick="resetFilters()">🔄 Reset</button>
+            </div>
+
             <div class="stats-grid">
                 <div class="stat-card green">
                     <div class="label">Total Attended</div>
@@ -134,6 +161,10 @@
     <script>
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxICiKwyI0ehP2M8S_nRrostrRajgZ6zKVpXQoLKJ4taBDML2uLUe1ZQ_jeHhUFwZbj/exec';
         let chartInstances = {};
+        let allConcerts = [];
+        let allStats = [];
+        let allArtists = new Set();
+        let allYears = new Set();
 
         async function loadData() {
             try {
@@ -141,7 +172,41 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    processData(data);
+                    allConcerts = data.concerts || [];
+                    allStats = data.statistics || [];
+                    
+                    // Extract unique artists and years
+                    for (let i = 1; i <= 99 && i < allConcerts.length; i++) {
+                        const row = allConcerts[i];
+                        if (!row) continue;
+                        
+                        // Get year
+                        if (row[1]) {
+                            const dateObj = parseDate(row[1]);
+                            if (dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970) {
+                                allYears.add(dateObj.getFullYear());
+                            }
+                        }
+                        
+                        // Get artists
+                        if (row[3]) {
+                            const artistStr = String(row[3]).trim();
+                            const artistList = artistStr.split(/,\s*|\s*&\s*|\s*\+\s*/);
+                            artistList.forEach(a => {
+                                const trimmed = a.trim();
+                                if (trimmed && !trimmed.toLowerCase().includes('more')) {
+                                    allArtists.add(trimmed);
+                                }
+                            });
+                        }
+                    }
+                    
+                    // Populate filter dropdowns
+                    populateFilters();
+                    
+                    // Initial render
+                    updateDashboard();
+                    
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('dashboard').classList.add('active');
                 } else {
@@ -152,41 +217,79 @@
             }
         }
 
-        function parseNum(val) {
-            if (!val) return 0;
-            const num = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
-            return isNaN(num) ? 0 : num;
+        function populateFilters() {
+            // Populate year filter
+            const yearSelect = document.getElementById('yearFilter');
+            const years = Array.from(allYears).sort();
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            });
+            
+            // Populate artist filter
+            const artistSelect = document.getElementById('artistFilter');
+            const artists = Array.from(allArtists).sort();
+            artists.forEach(artist => {
+                const option = document.createElement('option');
+                option.value = artist;
+                option.textContent = artist;
+                artistSelect.appendChild(option);
+            });
+            
+            // Add event listeners
+            document.getElementById('yearFilter').addEventListener('change', updateDashboard);
+            document.getElementById('artistFilter').addEventListener('change', updateDashboard);
+            document.getElementById('searchFilter').addEventListener('input', updateDashboard);
         }
 
-        function fmt(num) {
-            return Math.round(num).toLocaleString();
+        function getFilteredConcerts() {
+            const yearFilter = document.getElementById('yearFilter').value;
+            const artistFilter = document.getElementById('artistFilter').value;
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+            
+            return allConcerts.filter((row, i) => {
+                if (i === 0 || !row) return false; // Skip header
+                if (i > 99) return false; // Skip summary row
+                
+                // Year filter
+                if (yearFilter) {
+                    const dateObj = parseDate(row[1]);
+                    if (!dateObj || dateObj.getFullYear() !== parseInt(yearFilter)) return false;
+                }
+                
+                // Artist filter
+                if (artistFilter) {
+                    const artistStr = String(row[3] || '').toLowerCase();
+                    if (!artistStr.includes(artistFilter.toLowerCase())) return false;
+                }
+                
+                // Search filter
+                if (searchFilter) {
+                    const eventName = String(row[4] || '').toLowerCase();
+                    const artist = String(row[3] || '').toLowerCase();
+                    if (!eventName.includes(searchFilter) && !artist.includes(searchFilter)) return false;
+                }
+                
+                return true;
+            });
         }
 
-        function parseDate(val) {
-            if (!val) return null;
-            if (typeof val === 'number') {
-                const excelEpoch = new Date(1899, 11, 30);
-                const date = new Date(excelEpoch.getTime() + val * 86400000);
-                return date;
-            }
-            return new Date(val);
+        function updateDashboard() {
+            const filtered = getFilteredConcerts();
+            processFilteredData(filtered);
         }
 
-        function processData(data) {
-            const concerts = data.concerts || [];
-            const stats = data.statistics || [];
+        function processFilteredData(filteredConcerts) {
+            const artists = {}, venues = {}, eventTypes = {}, latestAttended = [];
+            const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {};
+            let attendedCount = 0;
+            let totalNetCost = 0;
 
-            const artists = {}, venues = {}, eventTypes = {};
-            let attended = 0, totalNetCost = 0;
-            const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {}, latestAttended = [];
-
-            // Process concerts rows 2-100 (indices 1-99) - skip summary row 101
-            for (let i = 1; i <= 99 && i < concerts.length; i++) {
-                const row = concerts[i];
-                if (!row) continue;
-
-                const actualPrice = parseNum(row[13]);
-                const refund = parseNum(row[18]);
+            filteredConcerts.forEach(row => {
+                const actualPrice = parseNum(getValue(row[13]));
+                const refund = parseNum(getValue(row[18]));
                 const netCost = actualPrice - refund;
                 totalNetCost += netCost;
 
@@ -199,27 +302,26 @@
                 }
                 spendingByYear[year] = (spendingByYear[year] || 0) + netCost;
 
-            // Calculate net cost for all artists (before attendance filter)
-            if (row[3]) {
-                const artistStr = String(row[3]).trim();
-                const artistList = artistStr.split(/,\s*|\s*&\s*|\s*\+\s*/);
-                artistList.forEach(a => {
-                    const trimmed = a.trim();
-                    if (trimmed && !trimmed.toLowerCase().includes('more')) {
-                        // Add net cost to all artists, regardless of attendance status
-                        spendingByArtist[trimmed] = (spendingByArtist[trimmed] || 0) + netCost;
-                    }
-                });
-            }
+                // Calculate net cost for all artists
+                if (row[3]) {
+                    const artistStr = String(row[3]).trim();
+                    const artistList = artistStr.split(/,\s*|\s*&\s*|\s*\+\s*/);
+                    artistList.forEach(a => {
+                        const trimmed = a.trim();
+                        if (trimmed && !trimmed.toLowerCase().includes('more')) {
+                            spendingByArtist[trimmed] = (spendingByArtist[trimmed] || 0) + netCost;
+                        }
+                    });
+                }
 
+                // Only count attended
                 if (row[7] && String(row[7]).includes('Attended')) {
-                    attended++;
+                    attendedCount++;
                     concertsByYear[year] = (concertsByYear[year] || 0) + 1;
                     latestAttended.push({ date: row[1], artist: row[3], event: row[4], venue: row[5], net: netCost });
 
                     if (row[3]) {
                         const artistStr = String(row[3]).trim();
-                        // Split by ", " and " & " and other separators
                         const artistList = artistStr.split(/,\s*|\s*&\s*|\s*\+\s*/);
                         artistList.forEach(a => {
                             const trimmed = a.trim();
@@ -237,11 +339,11 @@
                         eventTypes[typeStr] = (eventTypes[typeStr] || 0) + 1;
                     }
                 }
-            }
+            });
 
             const topArtist = Object.entries(artists).sort((a, b) => b[1] - a[1])[0];
 
-            document.getElementById('totalAttended').textContent = attended;
+            document.getElementById('totalAttended').textContent = attendedCount;
             document.getElementById('totalTicketCost').textContent = '฿' + fmt(totalNetCost);
             document.getElementById('favoriteArtist').textContent = topArtist ? topArtist[0] : '-';
 
@@ -258,7 +360,7 @@
                         : 'N/A';
                     return `<div class="latest-card"><div class="date">📅 ${dateStr}</div><div class="artist">🎤 ${c.artist}</div><div class="event">${c.event || ''}</div><div class="event">🏟️ ${c.venue || ''}</div></div>`;
                 }).join('');
-            document.getElementById('latestConcerts').innerHTML = latestHtml || '<div class="empty-state">No concerts</div>';
+            document.getElementById('latestConcerts').innerHTML = latestHtml || '<div class="empty-state">No concerts match filters</div>';
 
             const medals = ['🥇', '🥈', '🥉'];
             const topArtists = Object.entries(artists).sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -271,14 +373,14 @@
                 .map(([name, count], i) => `<div class="list-item"><div class="list-rank">${medals[i]}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`)
                 .join('');
 
-            // Process stats for expenses/income
+            // Expenses/Income (no filter)
             const expenses = {}, incomes = {};
             let expTotal = 0, incTotal = 0;
 
-            for (let i = 42; i <= 48 && i < stats.length; i++) {
-                if (stats[i]) {
-                    const cat = stats[i][0];
-                    const val = parseNum(stats[i][1]);
+            for (let i = 42; i <= 48 && i < allStats.length; i++) {
+                if (allStats[i]) {
+                    const cat = allStats[i][0];
+                    const val = parseNum(allStats[i][1]);
                     if (cat && val > 0) {
                         expenses[String(cat).trim()] = val;
                         expTotal += val;
@@ -286,10 +388,10 @@
                 }
             }
 
-            for (let i = 52; i <= 55 && i < stats.length; i++) {
-                if (stats[i]) {
-                    const cat = stats[i][0];
-                    const val = parseNum(stats[i][1]);
+            for (let i = 52; i <= 55 && i < allStats.length; i++) {
+                if (allStats[i]) {
+                    const cat = allStats[i][0];
+                    const val = parseNum(allStats[i][1]);
                     if (cat && val > 0) {
                         incomes[String(cat).trim()] = val;
                         incTotal += val;
@@ -338,6 +440,38 @@
                 data: { labels: events.map(e => e[0]), datasets: [{ data: events.map(e => e[1]), backgroundColor: eventColors }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
             });
+        }
+
+        function resetFilters() {
+            document.getElementById('yearFilter').value = '';
+            document.getElementById('artistFilter').value = '';
+            document.getElementById('searchFilter').value = '';
+            updateDashboard();
+        }
+
+        function getValue(val) {
+            if (!val) return null;
+            return val.v !== undefined ? val.v : null;
+        }
+
+        function parseNum(val) {
+            if (!val) return 0;
+            const num = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+            return isNaN(num) ? 0 : num;
+        }
+
+        function fmt(num) {
+            return Math.round(num).toLocaleString();
+        }
+
+        function parseDate(val) {
+            if (!val) return null;
+            if (typeof val === 'number') {
+                const excelEpoch = new Date(1899, 11, 30);
+                const date = new Date(excelEpoch.getTime() + val * 86400000);
+                return date;
+            }
+            return new Date(val);
         }
 
         window.addEventListener('load', loadData);
