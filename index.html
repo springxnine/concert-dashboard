@@ -204,7 +204,6 @@
                     attended++;
                     concertsByYear[year] = (concertsByYear[year] || 0) + 1;
                     latestAttended.push({ date: row[1], artist: row[3], event: row[4], venue: row[5], net: netCost });
-                    latestAttended.push({ date: row[1], artist: row[3], event: row[4], venue: row[5], net: netCost });
 
                     if (row[3]) {
                         const artistStr = String(row[3]).trim();
