@@ -180,8 +180,8 @@
             let attended = 0, totalNetCost = 0;
             const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {}, latestAttended = [];
 
-            // Process all concerts rows
-            for (let i = 1; i < concerts.length; i++) {
+            // Process all concerts rows (skip last empty row)
+            for (let i = 1; i < concerts.length - 1; i++) {
                 const row = concerts[i];
                 if (!row[0]) continue;
 
