@@ -241,14 +241,15 @@
                 }).join('');
             document.getElementById('latestConcerts').innerHTML = latestHtml || '<div class="empty-state">No concerts</div>';
 
+            const medals = ['🥇', '🥈', '🥉'];
             const topArtists = Object.entries(artists).sort((a, b) => b[1] - a[1]).slice(0, 3);
             document.getElementById('topArtists').innerHTML = topArtists
-                .map(([name, count], i) => `<div class="list-item"><div class="list-rank">['🥇','🥈','🥉'][${i}]</div><div class="list-name">${name}</div><div class="list-count">${count}x</div><div class="list-spending">฿${fmt(spendingByArtist[name] || 0)}</div></div>`)
+                .map(([name, count], i) => `<div class="list-item"><div class="list-rank">${medals[i]}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div><div class="list-spending">฿${fmt(spendingByArtist[name] || 0)}</div></div>`)
                 .join('');
 
             const topVenues = Object.entries(venues).sort((a, b) => b[1] - a[1]).slice(0, 3);
             document.getElementById('topVenues').innerHTML = topVenues
-                .map(([name, count], i) => `<div class="list-item"><div class="list-rank">['🥇','🥈','🥉'][${i}]</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`)
+                .map(([name, count], i) => `<div class="list-item"><div class="list-rank">${medals[i]}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`)
                 .join('');
 
             // Process stats for expenses/income
