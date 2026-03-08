@@ -116,22 +116,21 @@
                     <h2>Spending by Year (Net)</h2>
                     <div class="chart-container"><canvas id="spendingByYearChart"></canvas></div>
                 </div>
-                <div class="chart-box" style="grid-column: 1 / -1;">
-                    <h2>Monthly Spending Trend</h2>
-                    <div class="chart-container"><canvas id="monthlySpendingChart"></canvas></div>
-                </div>
-            </div>
-
-            <div class="charts-grid">
                 <div class="chart-box">
                     <h2>Events by Type</h2>
                     <div class="chart-container"><canvas id="eventTypesChart"></canvas></div>
                 </div>
-                <div class="chart-box">
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-box" style="grid-column: 1 / -1;">
                     <h2>Artist Spending Distribution</h2>
                     <div class="chart-container"><canvas id="artistSpendingChart"></canvas></div>
                 </div>
-                <div class="chart-box">
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-box" style="grid-column: 1 / -1;">
                     <h2>Venue Spending Analysis</h2>
                     <div class="chart-container"><canvas id="venueSpendingChart"></canvas></div>
                 </div>
@@ -460,30 +459,20 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
 
-            // Monthly Spending Trend
-            const months = Object.keys(monthlySpending).sort((a, b) => new Date(a) - new Date(b));
-            chartInstances.monthlySpending = new Chart(document.getElementById('monthlySpendingChart'), {
-                type: 'line',
-                data: { labels: months, datasets: [{ label: 'Monthly Spending', data: months.map(m => monthlySpending[m] || 0), borderColor: colors.info, backgroundColor: 'rgba(46,117,223,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointRadius: 6, pointBackgroundColor: colors.info }] },
+            // Events by Type (Bar Chart)
+            const events = Object.entries(eventTypesList).sort((a, b) => b[1] - a[1]);
+            chartInstances.eventTypes = new Chart(document.getElementById('eventTypesChart'), {
+                type: 'bar',
+                data: { labels: events.map(e => e[0]), datasets: [{ label: 'Count', data: events.map(e => e[1]), backgroundColor: colors.primary, borderRadius: 5 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
 
-            // Events by Type
-            const events = Object.entries(eventTypesList).sort((a, b) => b[1] - a[1]);
-            const eventColors = ['#667eea', '#70AD47', '#FF9F43', '#FF6B6B', '#2E75DF'];
-            chartInstances.eventTypes = new Chart(document.getElementById('eventTypesChart'), {
-                type: 'pie',
-                data: { labels: events.map(e => e[0]), datasets: [{ data: events.map(e => e[1]), backgroundColor: eventColors }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-            });
-
-            // Artist Spending Distribution
+            // Artist Spending Distribution (Bar Chart)
             const topArtistSpending = Object.entries(spendingByArtist).sort((a, b) => b[1] - a[1]).slice(0, 10);
-            const artistColors = ['#667eea', '#70AD47', '#FF9F43', '#FF6B6B', '#2E75DF', '#FF6B9D', '#C74B50', '#FFA502', '#6C7AA8', '#A23B72'];
             chartInstances.artistSpending = new Chart(document.getElementById('artistSpendingChart'), {
-                type: 'doughnut',
-                data: { labels: topArtistSpending.map(a => a[0]), datasets: [{ data: topArtistSpending.map(a => a[1]), backgroundColor: artistColors }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                type: 'bar',
+                data: { labels: topArtistSpending.map(a => a[0]), datasets: [{ label: 'Spending (฿)', data: topArtistSpending.map(a => a[1]), backgroundColor: colors.warning, borderRadius: 5 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
             });
 
             // Venue Spending Analysis
