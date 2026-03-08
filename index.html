@@ -180,11 +180,10 @@
             let attended = 0, totalNetCost = 0;
             const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {}, latestAttended = [];
 
-            // Process all concerts rows
-            for (let i = 1; i < concerts.length; i++) {
+            // Process concerts rows 2-100 (indices 1-99) - skip summary row 101
+            for (let i = 1; i <= 99 && i < concerts.length; i++) {
                 const row = concerts[i];
-                // Skip empty rows
-                if (!row || !row[0]) continue;
+                if (!row) continue;
 
                 const actualPrice = parseNum(row[13]);
                 const refund = parseNum(row[18]);
