@@ -260,36 +260,6 @@
                 </div>
             </div>
 
-            <div class="section-title">📊 STATISTICS SUMMARY</div>
-            <div class="summary-grid">
-                <div class="summary-card">
-                    <h3>Median Ticket Price</h3>
-                    <div class="value" id="medianPrice">฿0</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Average Ticket Price</h3>
-                    <div class="value" id="avgPrice">฿0</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Most Expensive Concert</h3>
-                    <div class="value" id="maxPrice">฿0</div>
-                    <div class="detail" id="maxDetail">-</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Cheapest Concert</h3>
-                    <div class="value" id="minPrice">฿0</div>
-                    <div class="detail" id="minDetail">-</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Average per Month</h3>
-                    <div class="value" id="avgMonth">฿0</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Cost per Concert</h3>
-                    <div class="value" id="costPerConcert">฿0</div>
-                </div>
-            </div>
-
             <div class="section-title">📊 CHARTS & ANALYTICS</div>
             <div class="charts-grid">
                 <div class="chart-box">
@@ -576,15 +546,6 @@
             document.getElementById('totalAttended').textContent = attendedCount;
             document.getElementById('totalTicketCost').textContent = '฿' + fmt(totalNetCost);
             document.getElementById('favoriteArtist').textContent = topArtist ? topArtist[0] : '-';
-            
-            document.getElementById('medianPrice').textContent = '฿' + fmt(medianPrice);
-            document.getElementById('avgPrice').textContent = '฿' + fmt(avgPrice);
-            document.getElementById('maxPrice').textContent = '฿' + fmt(maxPrice);
-            document.getElementById('maxDetail').textContent = maxEvent;
-            document.getElementById('minPrice').textContent = '฿' + fmt(minPrice);
-            document.getElementById('minDetail').textContent = minEvent;
-            document.getElementById('avgMonth').textContent = '฿' + fmt(avgMonth);
-            document.getElementById('costPerConcert').textContent = '฿' + fmt(costPerConcert);
 
             createCharts(concertsByYear, spendingByYear, eventTypes, spendingByArtist, spendingByVenue);
 
