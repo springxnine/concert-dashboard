@@ -85,7 +85,7 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label>Search by Event</label>
+                    <label>Search by Artist/Event</label>
                     <input type="text" id="searchFilter" placeholder="Search event name...">
                 </div>
                 <button class="filter-btn" onclick="resetFilters()">🔄 Reset</button>
@@ -288,8 +288,8 @@
             let totalNetCost = 0;
 
             filteredConcerts.forEach(row => {
-                const actualPrice = parseNum(getValue(row[13]));
-                const refund = parseNum(getValue(row[18]));
+                const actualPrice = parseNum(row[13]);
+                const refund = parseNum(row[18]);
                 const netCost = actualPrice - refund;
                 totalNetCost += netCost;
 
