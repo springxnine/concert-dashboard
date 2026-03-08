@@ -206,8 +206,15 @@
 
                     if (row[3]) {
                         const artistStr = String(row[3]).trim();
-                        artists[artistStr] = (artists[artistStr] || 0) + 1;
-                        spendingByArtist[artistStr] = (spendingByArtist[artistStr] || 0) + netCost;
+                        // Split by ", " and " & " and other separators
+                        const artistList = artistStr.split(/,\s*|\s*&\s*|\s*\+\s*/);
+                        artistList.forEach(a => {
+                            const trimmed = a.trim();
+                            if (trimmed && !trimmed.toLowerCase().includes('more')) {
+                                artists[trimmed] = (artists[trimmed] || 0) + 1;
+                                spendingByArtist[trimmed] = (spendingByArtist[trimmed] || 0) + netCost;
+                            }
+                        });
                     }
                     if (row[5]) {
                         const venueStr = String(row[5]).trim();
