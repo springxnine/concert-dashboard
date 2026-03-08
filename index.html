@@ -199,6 +199,19 @@
                 }
                 spendingByYear[year] = (spendingByYear[year] || 0) + netCost;
 
+            // Calculate net cost for all artists (before attendance filter)
+            if (row[3]) {
+                const artistStr = String(row[3]).trim();
+                const artistList = artistStr.split(/,\s*|\s*&\s*|\s*\+\s*/);
+                artistList.forEach(a => {
+                    const trimmed = a.trim();
+                    if (trimmed && !trimmed.toLowerCase().includes('more')) {
+                        // Add net cost to all artists, regardless of attendance status
+                        spendingByArtist[trimmed] = (spendingByArtist[trimmed] || 0) + netCost;
+                    }
+                });
+            }
+
                 if (row[7] && String(row[7]).includes('Attended')) {
                     attended++;
                     concertsByYear[year] = (concertsByYear[year] || 0) + 1;
@@ -212,7 +225,6 @@
                             const trimmed = a.trim();
                             if (trimmed && !trimmed.toLowerCase().includes('more')) {
                                 artists[trimmed] = (artists[trimmed] || 0) + 1;
-                                spendingByArtist[trimmed] = (spendingByArtist[trimmed] || 0) + netCost;
                             }
                         });
                     }
