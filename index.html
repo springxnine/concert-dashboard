@@ -40,10 +40,11 @@
         .latest-card .date { font-size: 0.9em; color: #999; margin-bottom: 5px; }
         .latest-card .artist { font-size: 1.2em; font-weight: 600; color: #333; }
         .latest-card .event { font-size: 0.9em; color: #666; margin-top: 5px; }
-        .breakdown-item { background: #f8f9fb; padding: 20px; border-radius: 10px; border-left: 4px solid #667eea; text-align: left; }
+        .breakdown-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .breakdown-item { background: #f8f9fb; padding: 20px; border-radius: 10px; border-left: 4px solid #667eea; }
         .breakdown-item h4 { font-weight: 600; color: #333; margin-bottom: 8px; }
         .breakdown-item .amount { font-size: 1.3em; color: #667eea; font-weight: 700; }
-        .breakdown-total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: right; color: white; margin-top: 20px; }
+        .breakdown-total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: right; color: white; grid-column: 1 / -1; margin-top: 10px; }
         .breakdown-total h4 { font-weight: 600; margin-bottom: 8px; opacity: 0.9; }
         .breakdown-total .amount { font-size: 1.8em; font-weight: 700; }
         .empty-state { text-align: center; padding: 40px; color: #999; font-style: italic; }
@@ -118,13 +119,13 @@
             <div class="section-title">💸 EXPENSES</div>
             <div class="content-box">
                 <h2>Expense Breakdown</h2>
-                <div id="expenseBreakdown"></div>
+                <div class="breakdown-grid" id="expenseBreakdown"></div>
             </div>
 
             <div class="section-title">💵 INCOME</div>
             <div class="content-box">
                 <h2>Income Breakdown</h2>
-                <div id="incomeBreakdown"></div>
+                <div class="breakdown-grid" id="incomeBreakdown"></div>
             </div>
         </div>
 
@@ -196,9 +197,9 @@
             let attendedCount = 0;
             let totalNetCost = 0;
 
-            // Process ALL concerts (not just Attended)
+            // Process ALL concerts Row 2-81 (index 1-80)
             // Column N = 13 (Actual Price), Column S = 18 (Refund Amount)
-            for (let i = 1; i < concertsRows.length - 1; i++) {
+            for (let i = 1; i <= 80 && i < concertsRows.length; i++) {
                 const row = concertsRows[i].c || [];
                 if (!row[0]) continue;
 
@@ -345,10 +346,11 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
             });
 
-            const spendingCounts = yearsSorted.map(y => spendingByYear[y] || 0);
+            const allYears = Object.keys(spendingByYear).filter(y => y !== 'Unknown').sort();
+            const spendingCounts = allYears.map(y => spendingByYear[y] || 0);
             chartInstances.spendingByYear = new Chart(document.getElementById('spendingByYearChart'), {
                 type: 'line',
-                data: { labels: yearsSorted, datasets: [{ label: 'Spending (฿)', data: spendingCounts, borderColor: chartColors.warning, backgroundColor: 'rgba(255, 159, 67, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointBackgroundColor: chartColors.warning, pointRadius: 5 }] },
+                data: { labels: allYears, datasets: [{ label: 'Spending (฿)', data: spendingCounts, borderColor: chartColors.warning, backgroundColor: 'rgba(255, 159, 67, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointBackgroundColor: chartColors.warning, pointRadius: 5 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
 
