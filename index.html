@@ -15,8 +15,7 @@
         .loading-spinner { display: inline-block; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 50px; }
-        .stat-card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: all 0.3s ease; text-align: center; }
-        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.3); }
+        .stat-card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
         .stat-card .label { font-size: 0.85em; color: #999; text-transform: uppercase; margin-bottom: 12px; font-weight: 600; }
         .stat-card .value { font-size: 2.5em; font-weight: 700; color: #667eea; }
         .stat-card.green .value { color: #70AD47; }
@@ -28,8 +27,6 @@
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; margin-bottom: 40px; }
         .chart-box { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); }
         .chart-box h2 { font-size: 1.3em; margin-bottom: 20px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
-        .list-container { background: white; border-radius: 15px; padding: 35px; box-shadow: 0 10px 35px rgba(0,0,0,0.2); margin-bottom: 40px; }
-        .list-container h2 { font-size: 1.5em; margin-bottom: 30px; color: #333; border-bottom: 3px solid #667eea; padding-bottom: 12px; }
         .list-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .list-item { background: #f8f9fb; padding: 25px; border-radius: 10px; border-left: 4px solid #667eea; text-align: center; }
         .list-rank { font-size: 2em; margin-bottom: 12px; }
@@ -63,7 +60,7 @@
 
         <div class="loading" id="loading">
             <div class="loading-spinner"></div>
-            <p id="loadingText">Loading data from Google Sheets...</p>
+            <p id="loadingText">Loading data...</p>
         </div>
 
         <div class="dashboard" id="dashboard">
@@ -105,13 +102,13 @@
             </div>
 
             <div class="section-title">🎤 TOP ARTISTS</div>
-            <div class="list-container">
+            <div class="content-box">
                 <h2>Top 3 Most Attended Artists</h2>
                 <div class="list-grid" id="topArtists"></div>
             </div>
 
             <div class="section-title">🏟️ TOP VENUES</div>
-            <div class="list-container">
+            <div class="content-box">
                 <h2>Top 3 Most Visited Venues</h2>
                 <div class="list-grid" id="topVenues"></div>
             </div>
@@ -130,41 +127,29 @@
         </div>
 
         <div class="footer">
-            <p>🎵 Concert Archives Dashboard | Real-time data from Google Sheets</p>
+            <p>🎵 Concert Archives Dashboard</p>
         </div>
     </div>
 
     <script>
-        const SHEET_ID = '1JjFwIutAXA4xtq4xgbrfH4DtknSuJ06YPaup5gijqtM';
-        let chartInstances = { concertsByYear: null, spendingByYear: null, eventTypes: null };
-
-        async function fetchSheet(gid) {
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`;
-            const res = await fetch(url);
-            const text = await res.text();
-            return JSON.parse(text.substring(47).slice(0, -2));
-        }
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxICiKwyI0ehP2M8S_nRrostrRajgZ6zKVpXQoLKJ4taBDML2uLUe1ZQ_jeHhUFwZbj/exec';
+        let chartInstances = {};
 
         async function loadData() {
             try {
-                const [concerts, expenses, income] = await Promise.all([
-                    fetchSheet(930759061),
-                    fetchSheet(712406437),
-                    fetchSheet(1387421194)
-                ]);
-
-                processData(concerts, expenses, income);
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('dashboard').classList.add('active');
+                const response = await fetch(APPS_SCRIPT_URL);
+                const data = await response.json();
+                
+                if (data.success) {
+                    processData(data);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('dashboard').classList.add('active');
+                } else {
+                    throw new Error(data.error || 'Failed to load');
+                }
             } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('loadingText').textContent = '❌ Error: ' + error.message;
+                document.getElementById('loadingText').textContent = '❌ ' + error.message;
             }
-        }
-
-        function getValue(val) {
-            if (!val) return null;
-            return val.v !== undefined ? val.v : null;
         }
 
         function parseNum(val) {
@@ -174,7 +159,7 @@
         }
 
         function fmt(num) {
-            return Math.round(num).toLocaleString('en');
+            return Math.round(num).toLocaleString();
         }
 
         function parseDate(val) {
@@ -187,77 +172,59 @@
             return new Date(val);
         }
 
-        function processData(concerts, expenses, income) {
-            const concertsRows = concerts.rows || [];
-            const expenseRows = expenses.rows || [];
-            const incomeRows = income.rows || [];
+        function processData(data) {
+            const concerts = data.concerts || [];
+            const stats = data.statistics || [];
 
-            const artists = {}, venues = {}, eventTypes = {}, latestAttended = [];
-            const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {};
-            let attendedCount = 0;
-            let totalNetCost = 0;
+            const artists = {}, venues = {}, eventTypes = {};
+            let attended = 0, totalNetCost = 0;
+            const concertsByYear = {}, spendingByYear = {}, spendingByArtist = {}, latestAttended = [];
 
-            // Process ALL concerts Row 2-81 (index 1-80)
-            // Column N = 13 (Actual Price), Column S = 18 (Refund Amount)
-            for (let i = 1; i <= 80 && i < concertsRows.length; i++) {
-                const row = concertsRows[i].c || [];
+            // Process concerts (row 2-81 = indices 1-80)
+            for (let i = 1; i <= 80 && i < concerts.length; i++) {
+                const row = concerts[i];
                 if (!row[0]) continue;
 
-                const date = getValue(row[1]);
-                const eventType = getValue(row[2]);
-                const artist = getValue(row[3]);
-                const eventName = getValue(row[4]);
-                const venue = getValue(row[5]);
-                const status = getValue(row[7]);
-                const actualPrice = parseNum(getValue(row[13]));
-                const refundAmount = parseNum(getValue(row[18]));
-
-                // Net cost = Actual Price - Refund (for ALL rows)
-                const netCost = actualPrice - refundAmount;
+                const actualPrice = parseNum(row[13]);
+                const refund = parseNum(row[18]);
+                const netCost = actualPrice - refund;
                 totalNetCost += netCost;
 
-                // Get year
                 let year = 'Unknown';
-                if (date) {
-                    const dateObj = parseDate(date);
+                if (row[1]) {
+                    const dateObj = parseDate(row[1]);
                     if (dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970) {
                         year = dateObj.getFullYear();
                     }
                 }
-
                 spendingByYear[year] = (spendingByYear[year] || 0) + netCost;
 
-                // Only count Attended for other stats
-                if (status && String(status).includes('Attended')) {
-                    attendedCount++;
+                if (row[7] && String(row[7]).includes('Attended')) {
+                    attended++;
                     concertsByYear[year] = (concertsByYear[year] || 0) + 1;
-                    latestAttended.push({ date, artist, event: eventName, venue });
+                    latestAttended.push({ date: row[1], artist: row[3], event: row[4], venue: row[5], net: netCost });
 
-                    if (artist) {
-                        const artistStr = String(artist).trim();
-                        if (artistStr) artists[artistStr] = (artists[artistStr] || 0) + 1;
-                    }
-                    if (venue) {
-                        const venueStr = String(venue).trim();
-                        if (venueStr) venues[venueStr] = (venues[venueStr] || 0) + 1;
-                    }
-                    if (netCost > 0 && artist) {
-                        const artistStr = String(artist).trim();
+                    if (row[3]) {
+                        const artistStr = String(row[3]).trim();
+                        artists[artistStr] = (artists[artistStr] || 0) + 1;
                         spendingByArtist[artistStr] = (spendingByArtist[artistStr] || 0) + netCost;
                     }
-                    if (eventType) {
-                        const typeStr = String(eventType).trim();
-                        if (typeStr) eventTypes[typeStr] = (eventTypes[typeStr] || 0) + 1;
+                    if (row[5]) {
+                        const venueStr = String(row[5]).trim();
+                        venues[venueStr] = (venues[venueStr] || 0) + 1;
+                    }
+                    if (row[2]) {
+                        const typeStr = String(row[2]).trim();
+                        eventTypes[typeStr] = (eventTypes[typeStr] || 0) + 1;
                     }
                 }
             }
 
             const topArtist = Object.entries(artists).sort((a, b) => b[1] - a[1])[0];
-            const favoriteArtist = topArtist ? topArtist[0] : '-';
 
-            document.getElementById('totalAttended').textContent = attendedCount;
+            document.getElementById('totalAttended').textContent = attended;
             document.getElementById('totalTicketCost').textContent = '฿' + fmt(totalNetCost);
-            document.getElementById('favoriteArtist').textContent = favoriteArtist;
+            document.getElementById('favoriteArtist').textContent = topArtist ? topArtist[0] : '-';
 
             createCharts(concertsByYear, spendingByYear, eventTypes);
 
@@ -270,102 +237,86 @@
                     const dateStr = dateObj && dateObj.getFullYear && dateObj.getFullYear() > 1970 
                         ? dateObj.toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric'})
                         : 'N/A';
-                    return `<div class="latest-card"><div class="date">📅 ${dateStr}</div><div class="artist">🎤 ${c.artist || 'Unknown'}</div><div class="event">${c.event || ''}</div><div class="event">🏟️ ${c.venue || ''}</div></div>`;
+                    return `<div class="latest-card"><div class="date">📅 ${dateStr}</div><div class="artist">🎤 ${c.artist}</div><div class="event">${c.event || ''}</div><div class="event">🏟️ ${c.venue || ''}</div></div>`;
                 }).join('');
-            document.getElementById('latestConcerts').innerHTML = latestHtml || '<div class="empty-state">No attended concerts</div>';
+            document.getElementById('latestConcerts').innerHTML = latestHtml || '<div class="empty-state">No concerts</div>';
 
             const topArtists = Object.entries(artists).sort((a, b) => b[1] - a[1]).slice(0, 3);
             document.getElementById('topArtists').innerHTML = topArtists
-                .map(([name, count], i) => {
-                    const emoji = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-                    const spending = spendingByArtist[name] || 0;
-                    return `<div class="list-item"><div class="list-rank">${emoji}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div><div class="list-spending">฿${fmt(spending)}</div></div>`;
-                }).join('');
+                .map(([name, count], i) => `<div class="list-item"><div class="list-rank">['🥇','🥈','🥉'][${i}]</div><div class="list-name">${name}</div><div class="list-count">${count}x</div><div class="list-spending">฿${fmt(spendingByArtist[name] || 0)}</div></div>`)
+                .join('');
 
             const topVenues = Object.entries(venues).sort((a, b) => b[1] - a[1]).slice(0, 3);
             document.getElementById('topVenues').innerHTML = topVenues
-                .map(([name, count], i) => {
-                    const emoji = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-                    return `<div class="list-item"><div class="list-rank">${emoji}</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`;
-                }).join('');
+                .map(([name, count], i) => `<div class="list-item"><div class="list-rank">['🥇','🥈','🥉'][${i}]</div><div class="list-name">${name}</div><div class="list-count">${count}x</div></div>`)
+                .join('');
 
-            // Expenses: Sum column M (index 12)
-            let expTotal = 0;
-            const expenses = {};
-            for (let i = 1; i < expenseRows.length; i++) {
-                const row = expenseRows[i].c || [];
-                const catName = getValue(row[0]); // Column A
-                const amount = parseNum(getValue(row[12])); // Column M
-                
-                if (catName && amount > 0) {
-                    const catStr = String(catName).trim();
-                    expenses[catStr] = (expenses[catStr] || 0) + amount;
-                    expTotal += amount;
+            // Process stats for expenses/income
+            const expenses = {}, incomes = {};
+            let expTotal = 0, incTotal = 0;
+
+            for (let i = 42; i <= 48 && i < stats.length; i++) {
+                if (stats[i]) {
+                    const cat = stats[i][0];
+                    const val = parseNum(stats[i][1]);
+                    if (cat && val > 0) {
+                        expenses[String(cat).trim()] = val;
+                        expTotal += val;
+                    }
                 }
             }
+
+            for (let i = 52; i <= 55 && i < stats.length; i++) {
+                if (stats[i]) {
+                    const cat = stats[i][0];
+                    const val = parseNum(stats[i][1]);
+                    if (cat && val > 0) {
+                        incomes[String(cat).trim()] = val;
+                        incTotal += val;
+                    }
+                }
+            }
+
             let expHtml = Object.entries(expenses)
                 .sort((a, b) => b[1] - a[1])
                 .map(([cat, val]) => `<div class="breakdown-item"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
                 .join('');
-            expHtml += `<div class="breakdown-total"><h4>TOTAL EXPENSES</h4><div class="amount">฿${fmt(expTotal)}</div></div>`;
-            document.getElementById('expenseBreakdown').innerHTML = expHtml || '<div class="empty-state">No expenses</div>';
+            expHtml += `<div class="breakdown-total"><h4>TOTAL</h4><div class="amount">฿${fmt(expTotal)}</div></div>`;
+            document.getElementById('expenseBreakdown').innerHTML = expHtml;
 
-            // Income: Sum column J (index 9)
-            let incTotal = 0;
-            const incomes = {};
-            for (let i = 1; i < incomeRows.length; i++) {
-                const row = incomeRows[i].c || [];
-                const catName = getValue(row[0]); // Column A
-                const amount = parseNum(getValue(row[9])); // Column J
-                
-                if (catName && amount > 0) {
-                    const catStr = String(catName).trim();
-                    incomes[catStr] = (incomes[catStr] || 0) + amount;
-                    incTotal += amount;
-                }
-            }
             let incHtml = Object.entries(incomes)
                 .sort((a, b) => b[1] - a[1])
                 .map(([cat, val]) => `<div class="breakdown-item"><h4>${cat}</h4><div class="amount">฿${fmt(val)}</div></div>`)
                 .join('');
-            incHtml += `<div class="breakdown-total"><h4>TOTAL INCOME</h4><div class="amount">฿${fmt(incTotal)}</div></div>`;
-            document.getElementById('incomeBreakdown').innerHTML = incHtml || '<div class="empty-state">No income</div>';
+            incHtml += `<div class="breakdown-total"><h4>TOTAL</h4><div class="amount">฿${fmt(incTotal)}</div></div>`;
+            document.getElementById('incomeBreakdown').innerHTML = incHtml;
         }
 
         function createCharts(concertsByYear, spendingByYear, eventTypesList) {
-            const chartColors = { primary: '#667eea', success: '#70AD47', warning: '#FF9F43', danger: '#FF6B6B', info: '#2E75DF' };
+            Object.values(chartInstances).forEach(c => c && c.destroy());
 
-            Object.values(chartInstances).forEach(chart => { if (chart) chart.destroy(); });
+            const colors = { primary: '#667eea', success: '#70AD47', warning: '#FF9F43', danger: '#FF6B6B', info: '#2E75DF' };
+            const years = Object.keys(concertsByYear).filter(y => y !== 'Unknown').sort();
 
-            const yearsSorted = Object.keys(concertsByYear).filter(y => y !== 'Unknown').sort();
-            const concertCounts = yearsSorted.map(y => concertsByYear[y]);
-            
             chartInstances.concertsByYear = new Chart(document.getElementById('concertsByYearChart'), {
                 type: 'bar',
-                data: { labels: yearsSorted, datasets: [{ label: 'Attended', data: concertCounts, backgroundColor: chartColors.primary, borderRadius: 5 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-            });
-
-            const allYears = Object.keys(spendingByYear).filter(y => y !== 'Unknown').sort();
-            const spendingCounts = allYears.map(y => spendingByYear[y] || 0);
-            chartInstances.spendingByYear = new Chart(document.getElementById('spendingByYearChart'), {
-                type: 'line',
-                data: { labels: allYears, datasets: [{ label: 'Spending (฿)', data: spendingCounts, borderColor: chartColors.warning, backgroundColor: 'rgba(255, 159, 67, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointBackgroundColor: chartColors.warning, pointRadius: 5 }] },
+                data: { labels: years, datasets: [{ label: 'Attended', data: years.map(y => concertsByYear[y]), backgroundColor: colors.primary, borderRadius: 5 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
 
-            const eventEntries = Object.entries(eventTypesList).sort((a, b) => b[1] - a[1]);
-            const eventLabels = eventEntries.map(e => e[0]);
-            const eventCounts = eventEntries.map(e => e[1]);
-            const eventColors = eventLabels.map((_, i) => {
-                const colorArray = [chartColors.primary, chartColors.success, chartColors.warning, chartColors.danger, chartColors.info];
-                return colorArray[i % colorArray.length];
+            const allYears = Object.keys(spendingByYear).filter(y => y !== 'Unknown').sort();
+            chartInstances.spendingByYear = new Chart(document.getElementById('spendingByYearChart'), {
+                type: 'line',
+                data: { labels: allYears, datasets: [{ label: 'Spending', data: allYears.map(y => spendingByYear[y] || 0), borderColor: colors.warning, backgroundColor: 'rgba(255,159,67,0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 5 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
 
+            const events = Object.entries(eventTypesList).sort((a, b) => b[1] - a[1]);
+            const eventColors = ['#667eea', '#70AD47', '#FF9F43', '#FF6B6B', '#2E75DF'];
             chartInstances.eventTypes = new Chart(document.getElementById('eventTypesChart'), {
                 type: 'pie',
-                data: { labels: eventLabels, datasets: [{ data: eventCounts, backgroundColor: eventColors, borderWidth: 2, borderColor: 'white' }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 15, font: { size: 11 } } } } }
+                data: { labels: events.map(e => e[0]), datasets: [{ data: events.map(e => e[1]), backgroundColor: eventColors }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
             });
         }
 
