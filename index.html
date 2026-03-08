@@ -183,6 +183,8 @@
             // Process all concerts rows
             for (let i = 1; i < concerts.length; i++) {
                 const row = concerts[i];
+                // Skip empty rows
+                if (!row || !row[0]) continue;
 
                 const actualPrice = parseNum(row[13]);
                 const refund = parseNum(row[18]);
@@ -201,6 +203,7 @@
                 if (row[7] && String(row[7]).includes('Attended')) {
                     attended++;
                     concertsByYear[year] = (concertsByYear[year] || 0) + 1;
+                    latestAttended.push({ date: row[1], artist: row[3], event: row[4], venue: row[5], net: netCost });
                     latestAttended.push({ date: row[1], artist: row[3], event: row[4], venue: row[5], net: netCost });
 
                     if (row[3]) {
